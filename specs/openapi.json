@@ -1,0 +1,2797 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Archil Control Plane API",
+    "description": "The Archil Control Plane API provides programmatic access to manage disks,\npersistent sandboxes, mounts, and API keys in the Archil distributed\nfilesystem platform.\n\nAPI keys authenticate requests to this control plane and are scoped to\nyour account. They are distinct from *disk tokens*, which are per-disk\ncredentials used by clients when mounting a disk.\n\n## Authentication\n\nAll endpoints require an API key:\n\n```\nAuthorization: {API_KEY}\n```\n\nCreate API keys in the [Archil Console](https://console.archil.com) or via the API.\n\n## Response Format\n\nAll responses use a consistent envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... }\n}\n```\n\nOr on error:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Error message\"\n}\n```\n",
+    "version": "1.0.0",
+    "contact": {
+      "email": "support@archil.com",
+      "url": "https://archil.com"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://control.green.us-east-1.aws.prod.archil.com",
+      "description": "AWS US East (N. Virginia) — aws-us-east-1"
+    },
+    {
+      "url": "https://control.green.eu-west-1.aws.prod.archil.com",
+      "description": "AWS EU West (Ireland) — aws-eu-west-1"
+    },
+    {
+      "url": "https://control.green.us-west-2.aws.prod.archil.com",
+      "description": "AWS US West (Oregon) — aws-us-west-2"
+    },
+    {
+      "url": "https://control.blue.us-central1.gcp.prod.archil.com",
+      "description": "GCP US Central (Iowa) — gcp-us-central1"
+    }
+  ],
+  "security": [
+    {
+      "ApiKeyAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Disks",
+      "description": "Create, read, update, and delete disks"
+    },
+    {
+      "name": "Serverless Execution",
+      "description": "Run commands on a disk without provisioning compute"
+    },
+    {
+      "name": "Sandboxes",
+      "description": "Manage persistent sandbox virtual machines"
+    },
+    {
+      "name": "Disk Users",
+      "description": "Manage authorized users on disks"
+    },
+    {
+      "name": "API Tokens",
+      "description": "Manage API keys (also called API tokens) used to authenticate Control Plane API requests. Distinct from disk tokens."
+    }
+  ],
+  "paths": {
+    "/api/disks": {
+      "get": {
+        "operationId": "listDisks",
+        "summary": "List all disks",
+        "description": "Returns all disks owned by the authenticated account.",
+        "tags": [
+          "Disks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          },
+          {
+            "name": "name",
+            "in": "query",
+            "description": "Filter disks by exact name match.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of disks",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_DiskList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createDisk",
+        "summary": "Create a new disk",
+        "description": "Creates a new disk with the specified configuration. A default disk\ntoken user is automatically generated and returned in the response,\nso the disk is immediately mountable. The one-time disk token appears\nin `authorizedUsers[].token` and cannot be retrieved again. (This\ndisk token is scoped to the new disk and is separate from the API\nkey you used to make this request.)\n\nTo provide your own users instead, pass the deprecated `authMethods`\nfield or call AddDiskUser after creation.\n",
+        "tags": [
+          "Disks"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateDiskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Disk with this name already exists and configuration matches (idempotent)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CreateDisk"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Disk created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CreateDisk"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Access denied (e.g., preview region not enabled)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Disk with this name already exists but configuration differs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/disks/{id}": {
+      "get": {
+        "operationId": "getDisk",
+        "summary": "Get disk details",
+        "description": "Returns detailed information about a specific disk.",
+        "tags": [
+          "Disks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DiskId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Disk details",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Disk"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteDisk",
+        "summary": "Delete a disk",
+        "description": "Deletes a disk and all associated resources.",
+        "tags": [
+          "Disks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DiskId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Disk deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Empty"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/disks/{id}/share": {
+      "post": {
+        "operationId": "createShareUrl",
+        "summary": "Create a share URL for a file",
+        "description": "Creates a signed, time-limited URL for downloading a file without\nauthentication. The URL expires after 24 hours by default; pass\n`expiresIn` to set a custom lifetime up to 7 days.\n\nThe returned URL points to a public endpoint (`GET /api/shared/{token}`)\nthat verifies the signature, checks expiry, and streams the file with a\nsensible `Content-Type` and `Content-Disposition`. Range requests are\nsupported. No credentials are needed to open the URL.\n",
+        "tags": [
+          "Disks"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DiskId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateShareUrlRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Share URL created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ShareUrl"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/disks/{id}/users": {
+      "post": {
+        "operationId": "addDiskUser",
+        "summary": "Add user to disk",
+        "description": "Adds an authorized user to a disk. Users can authenticate via:\n- **token**: A shared token with a nickname and 4-character suffix\n- **awssts**: AWS STS role assumption with an IAM principal ARN\n",
+        "tags": [
+          "Disk Users"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DiskId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DiskUser"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "User added successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_AuthorizedUser"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/disks/{id}/users/{userType}": {
+      "delete": {
+        "operationId": "removeDiskUser",
+        "summary": "Remove user from disk",
+        "description": "Removes an authorized user from a disk.",
+        "tags": [
+          "Disk Users"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DiskId"
+          },
+          {
+            "name": "userType",
+            "in": "path",
+            "required": true,
+            "description": "The type of user authentication",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "token",
+                "awssts"
+              ]
+            }
+          },
+          {
+            "name": "identifier",
+            "in": "query",
+            "required": false,
+            "description": "Identifier of the user to remove, as returned in the creation or list response. For awssts users, this is the IAM ARN.\n",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "principal",
+            "in": "query",
+            "required": false,
+            "deprecated": true,
+            "description": "Use identifier instead.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User removed successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Message"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/disks/{id}/exec": {
+      "post": {
+        "operationId": "execDisk",
+        "summary": "Execute a command on a disk",
+        "description": "Launches a container with the specified disk mounted, runs the given\ncommand to completion, shuts down the container, and returns the command\nresult.\n",
+        "tags": [
+          "Serverless Execution"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DiskId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecDiskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_ExecDisk"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "504": {
+            "description": "Command timed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/disks/{id}/grep": {
+      "post": {
+        "operationId": "grepDisk",
+        "summary": "Parallel grep over a directory on a disk",
+        "description": "Searches files under a directory on the disk for lines matching a\nregular expression. Listing and matching are fanned out across\nephemeral exec containers, so the request finishes within the user's\ntime budget regardless of the size of the directory.\n\nThe user controls cost and latency with three knobs:\n\n- `maxDurationSeconds` is the wall-clock deadline (capped at 30s).\n- `concurrency` is the maximum number of parallel grep workers.\n  Higher concurrency finishes larger datasets within the deadline,\n  at proportionally more compute.\n- `maxResults` causes the search to short-circuit after the\n  aggregator has collected this many matches.\n\nWith `recursive: false` only files directly under `directory` are\nsearched. With `recursive: true` subdirectories are walked\nbreadth-first and grep workers are dispatched as soon as each level\nfinishes listing — listing and matching overlap.\n\nThe matches returned when stopping early on `maxResults` are a sample\nof whichever workers reported first, not the lexicographically first\nN. The response surfaces `stoppedReason` so callers can distinguish\ncompletion from early termination.\n",
+        "tags": [
+          "Serverless Execution"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DiskId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GrepDiskRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Grep completed (possibly stopped early)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_GrepDisk"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/exec": {
+      "post": {
+        "operationId": "exec",
+        "summary": "Execute a command with multiple disks mounted",
+        "description": "Launches a container with the supplied set of disks each mounted at its\nown relative path under `/mnt/archil`, runs the command to completion,\nand shuts down the container. Activation is atomic: every disk mounts\nor none of them do.\n\nRelative paths must be non-empty, non-absolute, and contain no `.` /\n`..` segments. Mounting two disks at the same relative path is an\nerror.\n",
+        "tags": [
+          "Serverless Execution"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ExecRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Command completed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Exec"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "504": {
+            "description": "Command timed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/sandboxes": {
+      "get": {
+        "operationId": "listSandboxes",
+        "summary": "List sandboxes",
+        "description": "All the account's sandboxes, oldest first.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "name": "filesystem",
+            "in": "query",
+            "required": false,
+            "description": "Only sandboxes that mount this disk",
+            "schema": {
+              "type": "string",
+              "pattern": "^dsk-[0-9a-f]{16}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sandboxes for the account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSandbox",
+        "summary": "Create a sandbox",
+        "description": "Provisions a sandbox VM with the requested shape and a dedicated,\npersistent Archil disk. By default the response reports `pending` after\nthe runtime accepts the start. Set `wait=true` to hold for `running`; if\nthe wait budget expires, the response remains `pending` and startup\ncontinues.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Wait"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSandboxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The sandbox was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "409": {
+            "description": "The requested sandbox name already exists in the account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Sandbox capacity reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}": {
+      "get": {
+        "operationId": "getSandbox",
+        "summary": "Get a sandbox",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The sandbox",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSandbox",
+        "summary": "Delete a sandbox",
+        "description": "Permanently deletes a stopped, exited, or failed sandbox and its backing disk. A sandbox with child forks cannot be deleted until those children are deleted, starting with the deepest ones.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The sandbox was deleted"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The sandbox must be stopped, exited, or failed and have no child forks. The error includes the number of child disks and up to 10 disk IDs that must be deleted first.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/connections": {
+      "post": {
+        "operationId": "createSandboxConnection",
+        "summary": "Create a sandbox process connection",
+        "description": "Returns a short-lived WebSocket URL for the process API in a running\nsandbox. The URL contains a signed token that expires at `expires_at`.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A short-lived direct connection URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxConnection"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The sandbox is not running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/pause": {
+      "post": {
+        "operationId": "pauseSandbox",
+        "summary": "Pause a sandbox",
+        "description": "Snapshot the CPU & memory state, then stop the VM. The sandbox reports\n`pausing` until the snapshot commit marker is durable and the VM exits,\nthen reports `paused`. Attached process connections close, while\nagent-owned processes remain available for reattachment after resume.\nA sandbox that is still `pending` must reach `running` before it can be paused.\nTo restore the snapshot, call `/resume`.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The sandbox was already inactive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The sandbox pause is in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The sandbox is still starting, or a plain stop is already in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/RetryableUnavailable"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/fork": {
+      "post": {
+        "operationId": "forkSandbox",
+        "summary": "Fork a sandbox",
+        "description": "Checkpoints a running source sandbox and creates an isolated writable\ndisk branch. Forks from running or paused sources resume from the\nsource's CPU, memory, and disk state. Forks from stopped sources\ncold-boot from the saved disk checkpoint. A running source is\nresumed after its checkpoint; paused and stopped sources remain\ninactive. Forked sandboxes may themselves be forked.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "$ref": "#/components/parameters/Wait"
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForkSandboxRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The fork was created and its start is pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The source cannot be paused or its fork checkpoint is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/RetryableUnavailable"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/resume": {
+      "post": {
+        "operationId": "resumeSandbox",
+        "summary": "Resume a sandbox",
+        "description": "Restores a paused sandbox's committed CPU and memory snapshot.\nResuming a running sandbox or a pending resume is idempotent. Only a\n`paused` sandbox can begin a new resume; `stopped`, `exited`, `failed`,\n`stopping`, `pausing`, or a pending cold start returns 409.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "$ref": "#/components/parameters/Wait"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The sandbox was already running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The sandbox resume is pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The sandbox is not paused, is shutting down, or a cold start is already in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/RetryableUnavailable"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/start": {
+      "post": {
+        "operationId": "startSandbox",
+        "summary": "Cold-start a sandbox",
+        "description": "Cold-boots from the persisted configuration and disks. If the sandbox\nwas paused, its memory snapshot is consumed and discarded before the\nnew VM runs; disk state remains. Starting a running sandbox or a pending\ncold start is idempotent. A sandbox that is stopping, pausing, or\npending a resume returns 409.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "$ref": "#/components/parameters/Wait"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The sandbox was already running",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The sandbox start is pending",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The previous VM is stopping or pausing, or a resume is already in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/RetryableUnavailable"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/stop": {
+      "post": {
+        "operationId": "stopSandbox",
+        "summary": "Stop a sandbox",
+        "description": "Gracefully shuts down the guest, then checkpoints its disk before\nentering `stopped`. The sandbox and any forks from it cold-boot from\ndisk state. Stopping a paused sandbox reuses its existing disk\ncheckpoint. In-flight processes receive the guest shutdown signal.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The sandbox was already inactive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The sandbox stop is in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "A pause is already in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/RetryableUnavailable"
+          }
+        }
+      }
+    },
+    "/api/tokens": {
+      "get": {
+        "operationId": "listApiTokens",
+        "summary": "List API tokens",
+        "description": "Returns all API tokens for the authenticated account.",
+        "tags": [
+          "API Tokens"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of API tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TokenList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createApiToken",
+        "summary": "Create API token",
+        "description": "Creates a new API token for programmatic access. The full token value\nis only returned once at creation time.\n",
+        "tags": [
+          "API Tokens"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Token created successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_TokenCreated"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/tokens/{id}": {
+      "delete": {
+        "operationId": "deleteApiToken",
+        "summary": "Delete API token",
+        "description": "Revokes and deletes an API token.",
+        "tags": [
+          "API Tokens"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "The token ID (hash)",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Message"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ApiKeyAuth": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "Authorization",
+        "description": "API key"
+      }
+    },
+    "parameters": {
+      "DiskId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "Disk ID (format `dsk-{16 hex chars}`)",
+        "schema": {
+          "type": "string",
+          "pattern": "^dsk-[0-9a-f]{16}$",
+          "example": "dsk-0123456789abcdef"
+        }
+      },
+      "SandboxId": {
+        "name": "sid",
+        "in": "path",
+        "required": true,
+        "description": "Sandbox UUID",
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "Wait": {
+        "name": "wait",
+        "in": "query",
+        "required": false,
+        "description": "Hold the request for a completed sandbox lifecycle transition",
+        "schema": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "Limit": {
+        "name": "limit",
+        "in": "query",
+        "required": false,
+        "description": "Maximum number of items to return",
+        "schema": {
+          "type": "integer",
+          "default": 50,
+          "maximum": 100
+        }
+      },
+      "Cursor": {
+        "name": "cursor",
+        "in": "query",
+        "required": false,
+        "description": "Pagination cursor from a previous response",
+        "schema": {
+          "type": "string"
+        }
+      }
+    },
+    "responses": {
+      "Unauthorized": {
+        "description": "Invalid or missing authentication credentials",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "ValidationError": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "Resource not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "RetryableUnavailable": {
+        "description": "The lifecycle transition is temporarily blocked and can be retried",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "success",
+          "error"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": false
+          },
+          "error": {
+            "type": "string",
+            "example": "Invalid request parameters"
+          }
+        }
+      },
+      "ApiResponse_Empty": {
+        "type": "object",
+        "required": [
+          "success"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          }
+        }
+      },
+      "ApiResponse_Message": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "SandboxState": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "running",
+          "pausing",
+          "paused",
+          "stopping",
+          "stopped",
+          "exited",
+          "failed",
+          "deleting",
+          "deleted"
+        ]
+      },
+      "Sandbox": {
+        "type": "object",
+        "required": [
+          "sandbox_id",
+          "name",
+          "status",
+          "vcpu_count",
+          "mem_size_mib",
+          "max_ttl_seconds",
+          "max_concurrent_execs",
+          "base_image",
+          "created_at",
+          "last_active_at"
+        ],
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "description": "Sandbox name."
+          },
+          "status": {
+            "$ref": "#/components/schemas/SandboxState"
+          },
+          "vcpu_count": {
+            "type": "integer"
+          },
+          "mem_size_mib": {
+            "type": "integer"
+          },
+          "max_ttl_seconds": {
+            "type": "integer",
+            "description": "Lifetime budget for each powered-on session. Activity does not extend the deadline; starting or resuming the sandbox begins a fresh session."
+          },
+          "max_concurrent_execs": {
+            "type": "integer",
+            "description": "Maximum concurrently attached process sessions"
+          },
+          "base_image": {
+            "type": "string",
+            "description": "OCI reference requested when the sandbox was created."
+          },
+          "platform": {
+            "type": "string",
+            "enum": [
+              "arm64",
+              "amd64"
+            ],
+            "description": "Sandbox CPU architecture."
+          },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SandboxEndpoint"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "running_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_active_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Current powered-on session deadline; absent while inactive."
+          },
+          "exit_reason": {
+            "type": "string"
+          }
+        }
+      },
+      "SandboxEndpoint": {
+        "type": "object",
+        "required": [
+          "port",
+          "hostname"
+        ],
+        "properties": {
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "hostname": {
+            "type": "string"
+          }
+        }
+      },
+      "SandboxConnection": {
+        "type": "object",
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "format": "uri"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponse_SandboxConnection": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/SandboxConnection"
+          }
+        }
+      },
+      "ApiResponse_Sandbox": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/Sandbox"
+          }
+        }
+      },
+      "CreateSandboxRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "description": "Sandbox name, unique within the account. A random word-list name is generated when omitted."
+          },
+          "vcpu_count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32,
+            "default": 1
+          },
+          "mem_size_mib": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 65536,
+            "default": 2048
+          },
+          "base_image": {
+            "type": "string",
+            "default": "ubuntu:26.04",
+            "description": "Public Linux OCI image reference. Docker shorthand and tags are accepted."
+          },
+          "env": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Environment variables applied to every process"
+          },
+          "max_ttl_seconds": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 28800,
+            "default": 28800,
+            "description": "Lifetime budget for each powered-on session. Activity does not extend the deadline; starting or resuming the sandbox begins a fresh session."
+          },
+          "max_concurrent_execs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 256,
+            "default": 32,
+            "description": "Maximum concurrently attached process sessions"
+          }
+        }
+      },
+      "ForkSandboxRequest": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+            "description": "Name for the fork. A random word-list name is generated when omitted."
+          }
+        }
+      },
+      "ApiResponse_SandboxList": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "sandboxes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/Sandbox"
+                }
+              }
+            }
+          }
+        }
+      },
+      "CreateDiskRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Disk name (alphanumeric, dashes, underscores)",
+            "minLength": 1,
+            "maxLength": 100,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "example": "my-data-disk"
+          },
+          "mounts": {
+            "type": "array",
+            "description": "Storage mount to attach. Omit for archil-managed storage.",
+            "minItems": 0,
+            "maxItems": 1,
+            "items": {
+              "$ref": "#/components/schemas/MountConfig"
+            }
+          },
+          "authMethods": {
+            "type": "array",
+            "deprecated": true,
+            "description": "Deprecated. Use AddDiskUser after creation instead. When provided, suppresses the default auto-generated token user.\n",
+            "items": {
+              "$ref": "#/components/schemas/DiskUser"
+            }
+          }
+        }
+      },
+      "MountConfig": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/S3Mount"
+          },
+          {
+            "$ref": "#/components/schemas/GCSMount"
+          },
+          {
+            "$ref": "#/components/schemas/R2Mount"
+          },
+          {
+            "$ref": "#/components/schemas/S3CompatibleMount"
+          },
+          {
+            "$ref": "#/components/schemas/AzureBlobMount"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "s3": "#/components/schemas/S3Mount",
+            "gcs": "#/components/schemas/GCSMount",
+            "r2": "#/components/schemas/R2Mount",
+            "s3-compatible": "#/components/schemas/S3CompatibleMount",
+            "azure-blob": "#/components/schemas/AzureBlobMount"
+          }
+        }
+      },
+      "S3Mount": {
+        "type": "object",
+        "title": "S3",
+        "description": "Mount configuration for Amazon S3 buckets",
+        "required": [
+          "type",
+          "bucketName"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "s3"
+            ],
+            "description": "Mount type identifier"
+          },
+          "bucketName": {
+            "type": "string",
+            "description": "S3 bucket name",
+            "example": "my-bucket"
+          },
+          "accessKeyId": {
+            "type": "string",
+            "description": "AWS access key ID (optional for public buckets or IAM role auth)"
+          },
+          "secretAccessKey": {
+            "type": "string",
+            "description": "AWS secret access key",
+            "format": "password",
+            "writeOnly": true
+          },
+          "sessionToken": {
+            "type": "string",
+            "description": "Session token for temporary credentials",
+            "writeOnly": true
+          },
+          "bucketPrefix": {
+            "type": "string",
+            "description": "Prefix within the bucket",
+            "example": "data/"
+          }
+        }
+      },
+      "GCSMount": {
+        "type": "object",
+        "title": "Google Cloud Storage",
+        "description": "Mount configuration for Google Cloud Storage buckets",
+        "required": [
+          "type",
+          "bucketName",
+          "accessKeyId",
+          "secretAccessKey"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "gcs"
+            ],
+            "description": "Mount type identifier"
+          },
+          "bucketName": {
+            "type": "string",
+            "description": "GCS bucket name",
+            "example": "my-gcs-bucket"
+          },
+          "accessKeyId": {
+            "type": "string",
+            "description": "HMAC access key ID",
+            "writeOnly": true
+          },
+          "secretAccessKey": {
+            "type": "string",
+            "description": "HMAC secret access key",
+            "format": "password",
+            "writeOnly": true
+          },
+          "bucketPrefix": {
+            "type": "string",
+            "description": "Prefix within the bucket (optional)",
+            "example": "data/"
+          }
+        }
+      },
+      "R2Mount": {
+        "type": "object",
+        "title": "Cloudflare R2",
+        "description": "Mount configuration for Cloudflare R2 buckets",
+        "required": [
+          "type",
+          "bucketName",
+          "bucketEndpoint",
+          "accessKeyId",
+          "secretAccessKey"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "r2"
+            ],
+            "description": "Mount type identifier"
+          },
+          "bucketName": {
+            "type": "string",
+            "description": "R2 bucket name",
+            "example": "my-r2-bucket"
+          },
+          "bucketEndpoint": {
+            "type": "string",
+            "description": "R2 endpoint URL",
+            "example": "https://accountid.r2.cloudflarestorage.com"
+          },
+          "accessKeyId": {
+            "type": "string",
+            "description": "R2 access key ID",
+            "writeOnly": true
+          },
+          "secretAccessKey": {
+            "type": "string",
+            "description": "R2 secret access key",
+            "format": "password",
+            "writeOnly": true
+          },
+          "bucketPrefix": {
+            "type": "string",
+            "description": "Prefix within the bucket (optional)",
+            "example": "data/"
+          }
+        }
+      },
+      "S3CompatibleMount": {
+        "type": "object",
+        "title": "S3-Compatible",
+        "description": "Mount configuration for S3-compatible storage (MinIO, Backblaze B2, etc.)",
+        "required": [
+          "type",
+          "bucketName",
+          "bucketEndpoint",
+          "accessKeyId",
+          "secretAccessKey"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "s3-compatible"
+            ],
+            "description": "Mount type identifier"
+          },
+          "bucketName": {
+            "type": "string",
+            "description": "Bucket name",
+            "example": "my-bucket"
+          },
+          "bucketEndpoint": {
+            "type": "string",
+            "description": "S3-compatible endpoint URL",
+            "example": "https://s3.us-west-001.backblazeb2.com"
+          },
+          "accessKeyId": {
+            "type": "string",
+            "description": "Access key ID",
+            "writeOnly": true
+          },
+          "secretAccessKey": {
+            "type": "string",
+            "description": "Secret access key",
+            "format": "password",
+            "writeOnly": true
+          },
+          "bucketPrefix": {
+            "type": "string",
+            "description": "Prefix within the bucket (optional)",
+            "example": "data/"
+          }
+        }
+      },
+      "AzureBlobMount": {
+        "type": "object",
+        "title": "Azure Blob Storage",
+        "description": "Mount configuration for Azure Blob Storage containers",
+        "required": [
+          "type",
+          "containerName",
+          "tenantId",
+          "clientId",
+          "clientSecret"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "azure-blob"
+            ],
+            "description": "Mount type identifier"
+          },
+          "containerName": {
+            "type": "string",
+            "description": "Azure blob container name",
+            "example": "my-container"
+          },
+          "endpoint": {
+            "type": "string",
+            "description": "Azure blob endpoint URL (optional if storageAccountName provided)",
+            "example": "https://myaccount.blob.core.windows.net"
+          },
+          "storageAccountName": {
+            "type": "string",
+            "description": "Azure storage account name (used to derive endpoint if not provided)",
+            "example": "myaccount"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "Azure AD tenant ID"
+          },
+          "clientId": {
+            "type": "string",
+            "description": "Azure AD application client ID"
+          },
+          "clientSecret": {
+            "type": "string",
+            "description": "Azure AD application client secret",
+            "format": "password",
+            "writeOnly": true
+          },
+          "bucketPrefix": {
+            "type": "string",
+            "description": "Prefix within the container",
+            "example": "data/"
+          }
+        }
+      },
+      "TokenUser": {
+        "type": "object",
+        "required": [
+          "type",
+          "nickname"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "token"
+            ]
+          },
+          "principal": {
+            "type": "string",
+            "maxLength": 2048,
+            "deprecated": true,
+            "description": "Deprecated. Client-provided token. If omitted, the server generates a cryptographically secure token and returns it in the response.\n"
+          },
+          "nickname": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "tokenSuffix": {
+            "type": "string",
+            "minLength": 4,
+            "maxLength": 4,
+            "deprecated": true,
+            "description": "Deprecated. Last 4 characters of the token. Required when principal is provided; ignored when the server generates the token.\n"
+          }
+        }
+      },
+      "AwsStsUser": {
+        "type": "object",
+        "required": [
+          "type",
+          "principal"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "awssts"
+            ]
+          },
+          "principal": {
+            "type": "string",
+            "description": "IAM principal ARN",
+            "maxLength": 2048
+          }
+        }
+      },
+      "DiskUser": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TokenUser"
+          },
+          {
+            "$ref": "#/components/schemas/AwsStsUser"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "token": "#/components/schemas/TokenUser",
+            "awssts": "#/components/schemas/AwsStsUser"
+          }
+        }
+      },
+      "DiskResponse": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "organization",
+          "status",
+          "provider",
+          "region",
+          "createdAt"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Disk ID",
+            "example": "dsk-0123456789abcdef"
+          },
+          "name": {
+            "type": "string",
+            "description": "Disk name"
+          },
+          "organization": {
+            "type": "string",
+            "description": "Owning organization ID"
+          },
+          "status": {
+            "type": "string",
+            "description": "Disk status",
+            "enum": [
+              "available",
+              "creating",
+              "deleting",
+              "deleted",
+              "failed"
+            ]
+          },
+          "fsHandlerStatus": {
+            "type": "string",
+            "description": "Filesystem handler status"
+          },
+          "provider": {
+            "type": "string",
+            "description": "Cloud provider"
+          },
+          "region": {
+            "type": "string",
+            "description": "Disk region (e.g., aws-us-east-1, gcp-us-central1)"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Creation timestamp"
+          },
+          "lastAccessed": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Last access timestamp"
+          },
+          "dataSize": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Total data size in bytes"
+          },
+          "monthlyUsage": {
+            "type": "string",
+            "description": "Monthly usage amount formatted as a currency string (e.g., \"$1.23\")"
+          },
+          "mounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MountResponse"
+            }
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/DiskMetrics"
+          },
+          "connectedClients": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ConnectedClient"
+            }
+          },
+          "authorizedUsers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/AuthorizedUser"
+            }
+          }
+        }
+      },
+      "MountResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Mount identifier"
+          },
+          "type": {
+            "type": "string",
+            "description": "Storage backend type",
+            "enum": [
+              "s3",
+              "gcs",
+              "r2",
+              "s3-compatible",
+              "azure-blob"
+            ]
+          },
+          "path": {
+            "type": "string",
+            "description": "Mount path"
+          },
+          "name": {
+            "type": "string",
+            "description": "Bucket/container name"
+          },
+          "accessMode": {
+            "type": "string",
+            "description": "Access mode",
+            "enum": [
+              "rw",
+              "ro"
+            ],
+            "example": "rw"
+          },
+          "config": {
+            "$ref": "#/components/schemas/MountConfigResponse"
+          },
+          "connectionStatus": {
+            "type": "string",
+            "description": "Current connection status",
+            "enum": [
+              "connected",
+              "disconnected"
+            ]
+          },
+          "authError": {
+            "type": "string",
+            "description": "Authentication error message (if disconnected)"
+          },
+          "authorizationType": {
+            "type": "string",
+            "description": "How the mount authenticates to the storage backend",
+            "enum": [
+              "iam",
+              "accessKeys",
+              "oauth"
+            ]
+          }
+        }
+      },
+      "MountConfigResponse": {
+        "type": "object",
+        "description": "Mount configuration details (secrets omitted)",
+        "properties": {
+          "bucketName": {
+            "type": "string",
+            "description": "Bucket name"
+          },
+          "bucketEndpoint": {
+            "type": "string",
+            "description": "Storage endpoint URL"
+          },
+          "bucketPrefix": {
+            "type": "string",
+            "description": "Prefix within the bucket"
+          },
+          "sessionId": {
+            "type": "string",
+            "description": "Session identifier for IAM-authorized mounts"
+          }
+        }
+      },
+      "DiskMetrics": {
+        "type": "object",
+        "properties": {
+          "dataTransfer": {
+            "type": "string",
+            "description": "Data transfer amount with unit (e.g., \"1.5 GB\")"
+          },
+          "requests": {
+            "type": "string",
+            "description": "Total request count as a formatted string (e.g., \"1,234\")"
+          },
+          "avgResponseTime": {
+            "type": "string",
+            "description": "Average response time with unit (e.g., \"45ms\")"
+          }
+        }
+      },
+      "ConnectedClient": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "ipAddress": {
+            "type": "string"
+          },
+          "connectedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AuthorizedUser": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "token",
+              "awssts"
+            ]
+          },
+          "principal": {
+            "type": "string",
+            "deprecated": true,
+            "description": "Use identifier instead. Only populated for awssts type (the IAM ARN).\n"
+          },
+          "nickname": {
+            "type": "string"
+          },
+          "tokenSuffix": {
+            "type": "string"
+          },
+          "token": {
+            "type": "string",
+            "description": "The generated disk token (used by clients when mounting the disk). Only present in the response when the server generates the token (i.e. principal was not provided). This value is shown exactly once and cannot be retrieved again.\n"
+          },
+          "identifier": {
+            "type": "string",
+            "description": "Stable identifier for this user, returned in creation and list responses. Use this value with DELETE /api/disks/{id}/users/{type}?identifier={identifier} to remove the user. For awssts users, this is the IAM ARN.\n"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponse_DiskList": {
+        "description": "All API responses use a standard envelope with `success: boolean` and `data` (on success) or `error: string` (on failure). The ApiResponse_* schemas each define the specific `data` shape for their endpoint.\n",
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DiskResponse"
+            }
+          }
+        }
+      },
+      "ApiResponse_Disk": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/DiskResponse"
+          }
+        }
+      },
+      "ApiResponse_CreateDisk": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "diskId": {
+                "type": "string",
+                "example": "dsk-0123456789abcdef"
+              },
+              "authorizedUsers": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/AuthorizedUser"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ApiResponse_AuthorizedUser": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/AuthorizedUser"
+          }
+        }
+      },
+      "CreateApiTokenRequest": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Token name",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "description": {
+            "type": "string",
+            "description": "Token description",
+            "maxLength": 500
+          }
+        }
+      },
+      "ApiTokenResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Token hash/ID"
+          },
+          "name": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "tokenSuffix": {
+            "type": "string",
+            "description": "Last 4 characters of the token"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "lastUsedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponse_TokenList": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "properties": {
+              "tokens": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/components/schemas/ApiTokenResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ApiResponse_TokenCreated": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ApiTokenResponse"
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "Full token value (only shown at creation)",
+                    "example": "key-abc123..."
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      "ExecDiskRequest": {
+        "type": "object",
+        "required": [
+          "command"
+        ],
+        "properties": {
+          "command": {
+            "type": "string",
+            "description": "Shell command to execute inside the container",
+            "example": "ls -la /mnt/archil"
+          }
+        }
+      },
+      "ExecDiskResult": {
+        "type": "object",
+        "required": [
+          "exitCode",
+          "stdout",
+          "stderr",
+          "timing"
+        ],
+        "properties": {
+          "exitCode": {
+            "type": "integer",
+            "description": "Exit code of the command (0 = success)",
+            "example": 0
+          },
+          "stdout": {
+            "type": "string",
+            "description": "Standard output from the command"
+          },
+          "stderr": {
+            "type": "string",
+            "description": "Standard error from the command"
+          },
+          "timing": {
+            "$ref": "#/components/schemas/ExecTiming"
+          }
+        }
+      },
+      "ExecTiming": {
+        "type": "object",
+        "description": "Server-measured timings for an exec request.",
+        "required": [
+          "totalMs",
+          "queueMs",
+          "executeMs"
+        ],
+        "properties": {
+          "totalMs": {
+            "type": "integer",
+            "description": "End-to-end wall clock measured on the server, from request arrival to response.\n",
+            "example": 2450
+          },
+          "queueMs": {
+            "type": "integer",
+            "description": "Time spent queueing, scheduling, booting/claiming a VM, and mounting the filesystem before the command started running.\n",
+            "example": 150
+          },
+          "executeMs": {
+            "type": "integer",
+            "description": "Time the user's command itself ran, measured by the runtime.\n",
+            "example": 2300
+          }
+        }
+      },
+      "ApiResponse_ExecDisk": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExecDiskResult"
+          }
+        }
+      },
+      "ExecRequest": {
+        "type": "object",
+        "required": [
+          "disks",
+          "command"
+        ],
+        "properties": {
+          "disks": {
+            "type": "object",
+            "description": "Map of relative path under `/mnt/archil` to the disk to mount\nthere. At least one entry is required. Relative paths must be\nnon-empty, non-absolute, and contain no `.` or `..` segments.\n\nEach value is either a plain disk ID string (mounts the disk's\nroot, read-write) or an object that additionally selects a\nsubdirectory of the disk and/or marks the mount as read-only.\n",
+            "additionalProperties": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "description": "Disk ID; mounts the disk's root as read-write",
+                  "example": "dsk-abc123"
+                },
+                {
+                  "$ref": "#/components/schemas/ExecMount"
+                }
+              ]
+            },
+            "example": {
+              "data": "dsk-abc123",
+              "logs": {
+                "disk": "dsk-def456",
+                "subdirectory": "app/logs",
+                "readOnly": true
+              }
+            }
+          },
+          "command": {
+            "type": "string",
+            "description": "Shell command to execute inside the container",
+            "example": "ls -la /mnt/archil/data /mnt/archil/logs"
+          }
+        }
+      },
+      "ExecMount": {
+        "type": "object",
+        "required": [
+          "disk"
+        ],
+        "properties": {
+          "disk": {
+            "type": "string",
+            "description": "Disk ID to mount at this relative path",
+            "example": "dsk-abc123"
+          },
+          "subdirectory": {
+            "type": "string",
+            "description": "Subdirectory of the disk to expose at the mountpoint. Must be a\nrelative path with no `.` or `..` segments. When omitted, the\ndisk's root is exposed.\n",
+            "example": "app/logs"
+          },
+          "readOnly": {
+            "type": "boolean",
+            "default": false,
+            "description": "When true, the disk is mounted read-only inside the container.\nWrites against the mount fail with EROFS.\n"
+          }
+        }
+      },
+      "ApiResponse_Exec": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/ExecDiskResult"
+          }
+        }
+      },
+      "GrepDiskRequest": {
+        "type": "object",
+        "required": [
+          "directory",
+          "pattern"
+        ],
+        "properties": {
+          "directory": {
+            "type": "string",
+            "description": "Directory on the disk to search, relative to the disk root.\nAn empty string or \"/\" means the disk root.\n",
+            "example": "data/logs"
+          },
+          "pattern": {
+            "type": "string",
+            "description": "Extended regular expression (passed to `grep -E`)",
+            "example": "ERROR|FATAL"
+          },
+          "recursive": {
+            "type": "boolean",
+            "description": "When true, walks subdirectories breadth-first.",
+            "default": false
+          },
+          "maxDurationSeconds": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30,
+            "default": 30,
+            "description": "Wall-clock deadline for the entire request. Capped at 30\nseconds because the runtime exec container itself is bounded\nat ~30s; longer requests would have their workers killed\nmid-scan.\n"
+          },
+          "concurrency": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50,
+            "description": "Maximum number of parallel grep workers. Higher values finish\nlarger datasets within the deadline but consume proportionally\nmore runtime capacity.\n"
+          },
+          "maxResults": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10000,
+            "default": 1000,
+            "description": "Stop scanning once the aggregator has this many matches.\nReturned matches are a sample of whichever workers reported\nfirst, not the lexicographically first N.\n"
+          }
+        }
+      },
+      "GrepMatch": {
+        "type": "object",
+        "required": [
+          "file",
+          "line",
+          "text"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Path to the file (relative to the disk root).",
+            "example": "data/logs/2026-05-03.log"
+          },
+          "line": {
+            "type": "integer",
+            "description": "1-based line number where the match occurred.",
+            "example": 142
+          },
+          "text": {
+            "type": "string",
+            "description": "The matching line."
+          }
+        }
+      },
+      "GrepStoppedReason": {
+        "type": "string",
+        "enum": [
+          "completed",
+          "incomplete",
+          "max_results",
+          "deadline",
+          "list_failed"
+        ],
+        "description": "Why the search stopped.\n- `completed`: every file under the directory was scanned successfully.\n- `incomplete`: pipeline ran to its natural end but one or more\n  batches errored (invalid regex, unreadable file, runtime issue).\n  Results may be partial or wrong; do not rely on completeness.\n- `max_results`: hit `maxResults` before scanning everything.\n- `deadline`: hit `maxDurationSeconds`.\n- `list_failed`: directory listing failed; partial results\n  may be present.\n"
+      },
+      "GrepDiskResult": {
+        "type": "object",
+        "required": [
+          "matches",
+          "stoppedReason",
+          "filesScanned",
+          "containersDispatched",
+          "computeSecondsUsed",
+          "durationMs",
+          "listingMs",
+          "grepMs"
+        ],
+        "properties": {
+          "matches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GrepMatch"
+            }
+          },
+          "stoppedReason": {
+            "$ref": "#/components/schemas/GrepStoppedReason"
+          },
+          "filesScanned": {
+            "type": "integer",
+            "description": "Files actually fed to a grep container."
+          },
+          "containersDispatched": {
+            "type": "integer",
+            "description": "Number of grep containers started for this request."
+          },
+          "computeSecondsUsed": {
+            "type": "number",
+            "format": "double",
+            "description": "Sum of per-container execution time in seconds, measured by the\nruntime. Approximates billable container-seconds.\n"
+          },
+          "durationMs": {
+            "type": "integer",
+            "description": "End-to-end wall clock measured by the server."
+          },
+          "listingMs": {
+            "type": "integer",
+            "description": "Wall-clock time spent enumerating files via listObjects, from\nthe request's start to the moment listing fully drained (or\nwas canceled). Listing and matching overlap, so listingMs +\ngrepMs typically exceeds durationMs.\n"
+          },
+          "grepMs": {
+            "type": "integer",
+            "description": "Wall-clock time spent matching, from the first grep container\nbeing dispatched to the last container reporting results. 0 if\nno batches ran.\n"
+          }
+        }
+      },
+      "ApiResponse_GrepDisk": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/GrepDiskResult"
+          }
+        }
+      },
+      "CreateShareUrlRequest": {
+        "type": "object",
+        "required": [
+          "key"
+        ],
+        "properties": {
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "description": "File key (path) within the disk.",
+            "example": "reports/2026-08/summary.csv"
+          },
+          "expiresIn": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 604800,
+            "description": "URL lifetime in seconds. Any integer from 1 to 604800 (7 days).\nDefaults to 86400 (24 hours).\n",
+            "example": 3600
+          }
+        }
+      },
+      "ApiResponse_ShareUrl": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "url",
+              "expiresIn"
+            ],
+            "properties": {
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "description": "The signed, public download URL."
+              },
+              "expiresIn": {
+                "type": "integer",
+                "description": "URL lifetime in seconds."
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

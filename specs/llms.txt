@@ -1,0 +1,82 @@
+# Archil
+
+- [Introduction](https://docs.archil.com/getting-started/introduction.md)
+- [Quickstart](https://docs.archil.com/getting-started/quickstart.md)
+- [Mount on Linux](https://docs.archil.com/mounting/linux.md)
+- [Mount on macOS](https://docs.archil.com/mounting/macos.md)
+- [Mount in a container](https://docs.archil.com/mounting/containers.md)
+- [Serverless execution](https://docs.archil.com/compute/serverless-execution.md): Run bash commands directly on an Archil file system.
+- [Introduction](https://docs.archil.com/compute/sandboxes/introduction.md): Create long-running Linux VMs with persistent disks, interactive shells, services, and forks.
+- [Sandbox Firewall](https://docs.archil.com/compute/sandboxes/firewall.md): Network egress filters for sandboxes.
+- [Search files](https://docs.archil.com/compute/search-files.md)
+- [SQLite](https://docs.archil.com/compute/sqlite.md)
+- [Data Sources](https://docs.archil.com/concepts/data-sources.md): Configure bidirectional synchronization for Archil disks to existing data sets
+- [Authorization](https://docs.archil.com/concepts/authorization.md): Configure who is authorized to access the Archil APIs or disk
+- [Sharing Disks](https://docs.archil.com/concepts/sharing-disks.md): Archil disks can be shared between multiple servers simultaneously
+- [Branches & Checkpoints](https://docs.archil.com/concepts/branches-and-checkpoints.md): Snapshot the state of an Archil disk and fork independent, writable copies from any snapshot.
+- [Metering](https://docs.archil.com/concepts/metering.md): How Archil measures active data in the high-speed storage layer
+- [S3 Object Storage](https://docs.archil.com/data-sources/s3-object-storage.md): Configure S3-compatible storage providers as data sources for your Archil disk
+- [Architecture](https://docs.archil.com/details/architecture.md): Overview of Archil disk architecture
+- [Security & Compliance](https://docs.archil.com/details/security.md): How Archil protects your data, and what we commit to contractually
+- [Consistency](https://docs.archil.com/details/consistency.md): Understanding Archil&apos;s consistency model between clients and data sources
+- [Application Compatibility](https://docs.archil.com/details/support.md): Archil is designed for full POSIX-compatibility
+- [Performance](https://docs.archil.com/details/performance.md): Archil Performance Specifications
+- [Client caching](https://docs.archil.com/details/caching.md): How the Archil client caches data in memory, and the controls for warming, sizing, and refreshing it.
+- [Solution Comparison](https://docs.archil.com/details/comparison.md): Archil is designed to replace block storage
+- [Best practices](https://docs.archil.com/administration/best-practices.md): Recommended ways to structure your Archil accounts, disks, and credentials for production and multi-tenant workloads.
+- [Pricing & Billing](https://docs.archil.com/administration/billing.md): Plans, invoicing, usage monitoring, and cost management for Archil
+- [Organizations](https://docs.archil.com/administration/organizations.md): Use Organizations to effectively share disks between members of your team
+- [S3 API](https://docs.archil.com/protocols/s3-api.md): Read and write Archil disks over an S3-compatible HTTP API — list, download, upload, and delete objects with any S3 client, no mount required.
+- [TypeScript SDK](https://docs.archil.com/sdks/typescript.md): Programmatic access to Archil disks from TypeScript and Node.js applications
+- [Python SDK](https://docs.archil.com/sdks/python.md): Programmatic access to Archil disks from Python scripts, CI, and notebooks
+- [AI SDK](https://docs.archil.com/integrations/ai-sdk.md): Context your agent can understand
+- [eve](https://docs.archil.com/integrations/eve.md): Context your agent can understand
+- [just-bash](https://docs.archil.com/integrations/just-bash.md)
+- [`archil` CLI](https://docs.archil.com/reference/archil-cli.md): Reference for the Linux system CLI that mounts Archil disks as local folders.
+- [`disk` CLI](https://docs.archil.com/reference/disk-cli.md): Reference for the Node CLI that creates disks, runs `disk exec`, and manages API keys.
+- [Terraform provider](https://docs.archil.com/reference/terraform.md): Manage Archil disks, users, and API tokens with Infrastructure as Code
+- [Kubernetes CSI driver](https://docs.archil.com/reference/csi-driver.md): Documentation on mounting using the [Kubernetes Container Storage Interface](https://kubernetes-csi.github.io/docs/) (CSI) driver for Archil disks.
+- [Troubleshooting](https://docs.archil.com/reference/troubleshooting.md): Solutions to common issues with Archil disks
+- [Region availability](https://docs.archil.com/reference/regions.md): Archil regions and availability
+- [Verify Linux downloads](https://docs.archil.com/reference/verify-linux-downloads.md): Verify the authenticity and integrity of an Archil Linux release before installing it.
+- [Changelog](https://docs.archil.com/reference/changelog.md): History of updates to the Archil platform and client
+- [Subprocessors](https://docs.archil.com/legal/subprocessors.md): Third parties Archil engages to process data on your behalf
+- [API Reference](https://docs.archil.com/api-reference/introduction.md): Programmatic access to the Archil Control Plane
+- [List Disks](https://docs.archil.com/api-reference/disks/list-disks.md): Returns all disks owned by the authenticated account.
+- [Create Disk](https://docs.archil.com/api-reference/disks/create-disk.md): Creates a new disk with the specified configuration. A default disk token user is automatically generated and returned in the response, so the disk is immediately mountable. The one-time disk token appears in `authorizedUsers[].token` and cannot be retrieved again. (This disk token is scoped to the…
+- [Get Disk](https://docs.archil.com/api-reference/disks/get-disk.md): Returns detailed information about a specific disk.
+- [Delete Disk](https://docs.archil.com/api-reference/disks/delete-disk.md): Deletes a disk and all associated resources.
+- [Create Share URL](https://docs.archil.com/api-reference/disks/create-share-url.md): Creates a signed, time-limited URL for downloading a file without authentication. The URL expires after 24 hours by default; pass `expiresIn` to set a custom lifetime up to 7 days.
+- [Execute Command on Disk](https://docs.archil.com/api-reference/serverless-execution/exec-disk.md): Launches a container with the specified disk mounted, runs the given command to completion, shuts down the container, and returns the command result.
+- [Execute Command with Multiple Disks](https://docs.archil.com/api-reference/serverless-execution/exec-multi.md): Launches a container with the supplied set of disks each mounted at its own relative path under `/mnt/archil`, runs the command to completion, and shuts down the container. Activation is atomic: every disk mounts or none of them do.
+- [Search Files (grep)](https://docs.archil.com/api-reference/serverless-execution/grep-disk.md): Searches files under a directory on the disk for lines matching a regular expression. Listing and matching are fanned out across ephemeral exec containers, so the request finishes within the user's time budget regardless of the size of the directory.
+- [List Sandboxes](https://docs.archil.com/api-reference/sandboxes/list-sandboxes.md): All the account's sandboxes, oldest first.
+- [Create Sandbox](https://docs.archil.com/api-reference/sandboxes/create-sandbox.md): Provisions a sandbox VM with the requested shape and a dedicated, persistent Archil disk. By default the response reports `pending` after the runtime accepts the start. Set `wait=true` to hold for `running`; if the wait budget expires, the response remains `pending` and startup continues.
+- [Get Sandbox](https://docs.archil.com/api-reference/sandboxes/get-sandbox.md)
+- [Delete Sandbox](https://docs.archil.com/api-reference/sandboxes/delete-sandbox.md): Permanently deletes a stopped, exited, or failed sandbox and its backing disk. A sandbox with child forks cannot be deleted until those children are deleted, starting with the deepest ones.
+- [Create Sandbox Connection](https://docs.archil.com/api-reference/sandboxes/create-sandbox-connection.md): Returns a short-lived WebSocket URL for the process API in a running sandbox. The URL contains a signed token that expires at `expires_at`.
+- [Pause Sandbox](https://docs.archil.com/api-reference/sandboxes/pause-sandbox.md): Snapshot the CPU & memory state, then stop the VM. The sandbox reports `pausing` until the snapshot commit marker is durable and the VM exits, then reports `paused`. Attached process connections close, while agent-owned processes remain available for reattachment after resume. A sandbox that is stil…
+- [Fork Sandbox](https://docs.archil.com/api-reference/sandboxes/fork-sandbox.md): Checkpoints a running source sandbox and creates an isolated writable disk branch. Forks from running or paused sources resume from the source's CPU, memory, and disk state. Forks from stopped sources cold-boot from the saved disk checkpoint. A running source is resumed after its checkpoint; paused…
+- [Resume Sandbox](https://docs.archil.com/api-reference/sandboxes/resume-sandbox.md): Restores a paused sandbox's committed CPU and memory snapshot. Resuming a running sandbox or a pending resume is idempotent. Only a `paused` sandbox can begin a new resume; `stopped`, `exited`, `failed`, `stopping`, `pausing`, or a pending cold start returns 409.
+- [Start Sandbox](https://docs.archil.com/api-reference/sandboxes/start-sandbox.md): Cold-boots from the persisted configuration and disks. If the sandbox was paused, its memory snapshot is consumed and discarded before the new VM runs; disk state remains. Starting a running sandbox or a pending cold start is idempotent. A sandbox that is stopping, pausing, or pending a resume retur…
+- [Stop Sandbox](https://docs.archil.com/api-reference/sandboxes/stop-sandbox.md): Gracefully shuts down the guest, then checkpoints its disk before entering `stopped`. The sandbox and any forks from it cold-boot from disk state. Stopping a paused sandbox reuses its existing disk checkpoint. In-flight processes receive the guest shutdown signal.
+- [Add Disk User](https://docs.archil.com/api-reference/disk-users/add-user.md): Adds an authorized user to a disk. Users can authenticate via: - **token**: A shared token with a nickname and 4-character suffix - **awssts**: AWS STS role assumption with an IAM principal ARN
+- [Remove Disk User](https://docs.archil.com/api-reference/disk-users/remove-user.md): Removes an authorized user from a disk.
+- [List API Tokens](https://docs.archil.com/api-reference/tokens/list-tokens.md): Returns all API tokens for the authenticated account.
+- [Create API Token](https://docs.archil.com/api-reference/tokens/create-token.md): Creates a new API token for programmatic access. The full token value is only returned once at creation time.
+- [Delete API Token](https://docs.archil.com/api-reference/tokens/delete-token.md): Revokes and deletes an API token.
+- [AWS Lambda](https://docs.archil.com/guides/compute/aws-lambda.md): Use Archil disks from AWS Lambda functions
+- [Cloudflare Workers](https://docs.archil.com/guides/compute/cloudflare-workers.md): Access Archil disks from Cloudflare Workers
+- [Bash tool for agents](https://docs.archil.com/guides/ai/bash-tool.md): Give an AI agent a persistent file system and a bash tool, using disk.exec and the AI SDK.
+- [Vector search](https://docs.archil.com/guides/ai/faiss.md): Build high-performance vector similarity search with FAISS using Archil for shared embeddings and scalable vector databases
+- [Multi-agent systems](https://docs.archil.com/guides/ai/multi-agent-systems.md): Build multi-agent AI systems with LangChain and LangGraph using Archil for persistent memory and stateless agent architecture
+- [Jupyter Notebooks](https://docs.archil.com/guides/data-science/jupyter-serverless.md): Learn how to run Jupyter notebooks with PyTorch and MNIST training directly on Amazon S3 using Archil
+- [PostgreSQL](https://docs.archil.com/guides/databases/postgres.md): Run PostgreSQL on an Archil disk for elastic, S3-backed storage
+- [MySQL](https://docs.archil.com/guides/databases/mysql.md): Run MySQL on an Archil disk for elastic, S3-backed storage
+- [SQLite](https://docs.archil.com/guides/databases/sqlite.md): Run SQLite on an Archil disk for elastic, S3-backed storage
+- [Logging](https://docs.archil.com/guides/observability/logging.md): Using Archil to send application logs directly to S3 without code changes
+- [Firecracker](https://docs.archil.com/guides/virtualization/firecracker.md): Learn how to run Archil inside of a Firecracker microVM
+
+## OpenAPI Specs
+
+- [openapi](/api-reference/openapi.yaml)
