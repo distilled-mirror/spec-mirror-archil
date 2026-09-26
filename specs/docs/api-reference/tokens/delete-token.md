@@ -157,6 +157,9 @@ components:
         error:
           type: string
           example: Invalid request parameters
+        code:
+          type: string
+          description: Stable machine-readable error code.
   responses:
     Unauthorized:
       description: Invalid or missing authentication credentials

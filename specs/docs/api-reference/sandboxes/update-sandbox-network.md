@@ -2,20 +2,23 @@
 > Fetch the complete documentation index at: https://docs.archil.com/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-# Create Sandbox
+# Update Sandbox Network
 
-> Provisions a sandbox VM with the requested shape and a dedicated,
-persistent Archil disk. By default the response reports `pending` after
-the runtime accepts the start. Set `wait=true` to hold for `running`; if
-the wait budget expires, the response remains `pending` and startup
-continues.
+> Applies the complete replacement policy to a running sandbox, then
+records it as the current policy. A rejected update leaves the previous
+policy unchanged. Free-plan accounts cannot update network policies and
+receive 403 with code sandbox_network_plan_required. For paid accounts,
+an empty object restores unrestricted egress. Existing network sessions
+are not terminated; the replacement governs new connections and is
+retained across later stops and resumes. Sandboxes
+that are not running, or whose policy changes concurrently, return 409.
 
 
 
 
 ## OpenAPI
 
-````yaml POST /api/sandboxes
+````yaml PUT /api/sandboxes/{sid}/network
 openapi: 3.1.0
 info:
   title: Archil Control Plane API
@@ -107,39 +110,54 @@ tags:
       Manage API keys (also called API tokens) used to authenticate Control
       Plane API requests. Distinct from disk tokens.
 paths:
-  /api/sandboxes:
-    post:
+  /api/sandboxes/{sid}/network:
+    put:
       tags:
         - Sandboxes
-      summary: Create a sandbox
+      summary: Replace a running sandbox's network policy
       description: |
-        Provisions a sandbox VM with the requested shape and a dedicated,
-        persistent Archil disk. By default the response reports `pending` after
-        the runtime accepts the start. Set `wait=true` to hold for `running`; if
-        the wait budget expires, the response remains `pending` and startup
-        continues.
-      operationId: createSandbox
+        Applies the complete replacement policy to a running sandbox, then
+        records it as the current policy. A rejected update leaves the previous
+        policy unchanged. Free-plan accounts cannot update network policies and
+        receive 403 with code sandbox_network_plan_required. For paid accounts,
+        an empty object restores unrestricted egress. Existing network sessions
+        are not terminated; the replacement governs new connections and is
+        retained across later stops and resumes. Sandboxes
+        that are not running, or whose policy changes concurrently, return 409.
+      operationId: updateSandboxNetwork
       parameters:
-        - $ref: '#/components/parameters/Wait'
+        - $ref: '#/components/parameters/SandboxId'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateSandboxRequest'
+              $ref: '#/components/schemas/SandboxNetwork'
       responses:
-        '202':
-          description: The sandbox was created
+        '200':
+          description: The network policy was replaced
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Sandbox'
+                $ref: '#/components/schemas/ApiResponse_SandboxNetwork'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '403':
+          description: >-
+            Network policy updates require a paid plan
+            (sandbox_network_plan_required)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '409':
-          description: The requested sandbox name already exists in the account
+          description: >-
+            The sandbox is not running or the network policy changed
+            concurrently
           content:
             application/json:
               schema:
@@ -147,93 +165,28 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
-          description: No sandbox capacity is available; retry
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/RetryableUnavailable'
 components:
   parameters:
-    Wait:
-      name: wait
-      in: query
-      required: false
-      description: Hold the request for a completed sandbox lifecycle transition
+    SandboxId:
+      name: sid
+      in: path
+      required: true
+      description: Sandbox UUID
       schema:
-        type: boolean
-        default: false
+        type: string
+        format: uuid
   schemas:
-    CreateSandboxRequest:
+    SandboxNetwork:
       type: object
+      description: |
+        Sandbox network policy. New sandboxes on free plans receive deny-all
+        egress with no allowlist exceptions. Start/resume and forks retain the
+        stored policy. For paid accounts, egress is unrestricted when omitted.
       properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 63
-          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-          description: >-
-            Sandbox name, unique within the account. A random word-list name is
-            generated when omitted.
-        vcpu_count:
-          type: integer
-          minimum: 1
-          maximum: 32
-          default: 1
-        mem_size_mib:
-          type: integer
-          minimum: 256
-          maximum: 65536
-          default: 2048
-        base_image:
-          type: string
-          default: ubuntu:26.04
-          description: >-
-            Public Linux OCI image reference. Docker shorthand and tags are
-            accepted; the selected platform manifest is pinned at creation.
-        ports:
-          type: array
-          description: TCP ports to expose publicly when the sandbox is created.
-          items:
-            type: integer
-            minimum: 1
-            maximum: 65535
-        enable_service_ingress:
-          type: boolean
-          default: false
-          description: >-
-            Allow services inside the sandbox to expose ingress. When false,
-            services still run but their ports must be exposed explicitly
-            through the API. Retained across starts, resumes, and forks.
-        env:
-          type: object
-          additionalProperties:
-            type: string
-          description: Environment variables applied to every process
-        network:
-          $ref: '#/components/schemas/SandboxNetwork'
-        max_ttl_seconds:
-          type: integer
-          minimum: 60
-          maximum: 86400
-          default: 86400
-          description: >-
-            Lifetime budget applied independently to each powered-on session.
-            Expiry pauses the sandbox, preserving memory and processes for
-            resume.
-        idle_ttl_seconds:
-          type: integer
-          minimum: 0
-          maximum: 86400
-          description: >-
-            Pause after this many seconds without a direct process connection,
-            preserving memory and processes for resume. Omit or set to zero to
-            disable idle expiry.
-        max_concurrent_execs:
-          type: integer
-          description: >-
-            Maximum number of concurrently attached process sessions. Detached
-            processes and one-shot process controls do not count.
-    ApiResponse_Sandbox:
+        egress:
+          $ref: '#/components/schemas/SandboxEgressPolicy'
+    ApiResponse_SandboxNetwork:
       type: object
       required:
         - success
@@ -243,7 +196,7 @@ components:
           type: boolean
           example: true
         data:
-          $ref: '#/components/schemas/Sandbox'
+          $ref: '#/components/schemas/SandboxNetwork'
     ErrorResponse:
       type: object
       required:
@@ -259,104 +212,6 @@ components:
         code:
           type: string
           description: Stable machine-readable error code.
-    SandboxNetwork:
-      type: object
-      description: |
-        Sandbox network policy. New sandboxes on free plans receive deny-all
-        egress with no allowlist exceptions. Start/resume and forks retain the
-        stored policy. For paid accounts, egress is unrestricted when omitted.
-      properties:
-        egress:
-          $ref: '#/components/schemas/SandboxEgressPolicy'
-    Sandbox:
-      type: object
-      required:
-        - sandbox_id
-        - name
-        - status
-        - vcpu_count
-        - mem_size_mib
-        - max_ttl_seconds
-        - idle_ttl_seconds
-        - max_concurrent_execs
-        - base_image
-        - created_at
-        - last_active_at
-      properties:
-        sandbox_id:
-          type: string
-          format: uuid
-        name:
-          type: string
-          minLength: 1
-          maxLength: 63
-          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
-          description: Sandbox name.
-        status:
-          $ref: '#/components/schemas/SandboxState'
-        vcpu_count:
-          type: integer
-        mem_size_mib:
-          type: integer
-        max_ttl_seconds:
-          type: integer
-          description: >-
-            Lifetime budget applied independently to each powered-on session.
-            Expiry pauses the sandbox, preserving memory and processes for
-            resume. Defaults to 24 hours and can be reset with the timeout
-            endpoint.
-        idle_ttl_seconds:
-          type: integer
-          description: >-
-            Seconds without a direct process connection before the sandbox
-            pauses, preserving memory and processes for resume. Zero disables
-            idle expiry.
-        max_concurrent_execs:
-          type: integer
-          description: >-
-            Maximum number of concurrently attached process sessions. Detached
-            processes and one-shot process controls do not count.
-        base_image:
-          type: string
-          description: OCI reference requested when the sandbox was created.
-        platform:
-          type: string
-          enum:
-            - arm64
-            - amd64
-          description: Sandbox CPU architecture.
-        endpoints:
-          type: array
-          description: Public hostnames published by enabled sandbox services.
-          items:
-            $ref: '#/components/schemas/SandboxEndpoint'
-        enable_service_ingress:
-          type: boolean
-          default: false
-          description: >-
-            Whether services inside the sandbox can expose ingress. Explicit API
-            port exposure remains available regardless of this setting.
-        created_at:
-          type: string
-          format: date-time
-        running_at:
-          type: string
-          format: date-time
-        finished_at:
-          type: string
-          format: date-time
-        last_active_at:
-          type: string
-          format: date-time
-        exit_reason:
-          type: string
-        checkpoint:
-          type: string
-          description: |
-            Disk checkpoint the current session leaves behind. Present while
-            pausing, paused, stopping, or stopped, and committed once the
-            sandbox is paused or stopped. Pass it to the fork endpoint to fork
-            exactly this state.
     SandboxEgressPolicy:
       type: object
       description: >-
@@ -412,31 +267,6 @@ components:
               Asterisk matches zero or more characters; *.example.com matches
               subdomains, not example.com. Use * for every host.
             example: bedrock-runtime.*.amazonaws.com
-    SandboxState:
-      type: string
-      enum:
-        - pending
-        - running
-        - pausing
-        - paused
-        - stopping
-        - stopped
-        - exited
-        - failed
-        - deleting
-        - deleted
-    SandboxEndpoint:
-      type: object
-      required:
-        - port
-        - hostname
-      properties:
-        port:
-          type: integer
-          minimum: 1
-          maximum: 65535
-        hostname:
-          type: string
     SandboxNetworkAction:
       type: string
       enum:
@@ -496,8 +326,20 @@ components:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
     InternalError:
       description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RetryableUnavailable:
+      description: The lifecycle transition is temporarily blocked and can be retried
       content:
         application/json:
           schema:

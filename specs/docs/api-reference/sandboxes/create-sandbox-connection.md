@@ -4,8 +4,9 @@
 
 # Create Sandbox Connection
 
-> Returns a short-lived WebSocket URL for the process API in a running
-sandbox. The URL contains a signed token that expires at `expires_at`.
+> Returns a short-lived WebSocket URL used by the sandbox process API.
+The URL contains a signed token that expires at `expires_at`; an open
+WebSocket can remain connected after the token expires.
 
 
 
@@ -110,8 +111,9 @@ paths:
         - Sandboxes
       summary: Create a sandbox process connection
       description: |
-        Returns a short-lived WebSocket URL for the process API in a running
-        sandbox. The URL contains a signed token that expires at `expires_at`.
+        Returns a short-lived WebSocket URL used by the sandbox process API.
+        The URL contains a signed token that expires at `expires_at`; an open
+        WebSocket can remain connected after the token expires.
       operationId: createSandboxConnection
       parameters:
         - $ref: '#/components/parameters/SandboxId'
@@ -168,6 +170,9 @@ components:
         error:
           type: string
           example: Invalid request parameters
+        code:
+          type: string
+          description: Stable machine-readable error code.
     SandboxConnection:
       type: object
       required:

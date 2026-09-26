@@ -174,6 +174,9 @@ components:
         error:
           type: string
           example: Invalid request parameters
+        code:
+          type: string
+          description: Stable machine-readable error code.
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

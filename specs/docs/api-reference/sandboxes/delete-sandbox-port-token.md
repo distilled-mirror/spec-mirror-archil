@@ -2,15 +2,17 @@
 > Fetch the complete documentation index at: https://docs.archil.com/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-# Remove Disk User
+# Delete Sandbox Port Token
 
-> Removes an authorized user from a disk.
+> New private connections using the token fail after this request
+completes; established connections remain open. Expired tokens return not found.
+
 
 
 
 ## OpenAPI
 
-````yaml DELETE /api/disks/{id}/users/{userType}
+````yaml DELETE /api/sandboxes/{sid}/port-tokens/{token_id}
 openapi: 3.1.0
 info:
   title: Archil Control Plane API
@@ -102,78 +104,64 @@ tags:
       Manage API keys (also called API tokens) used to authenticate Control
       Plane API requests. Distinct from disk tokens.
 paths:
-  /api/disks/{id}/users/{userType}:
+  /api/sandboxes/{sid}/port-tokens/{token_id}:
     delete:
       tags:
-        - Disk Users
-      summary: Remove user from disk
-      description: Removes an authorized user from a disk.
-      operationId: removeDiskUser
+        - Sandboxes
+      summary: Revoke a sandbox port token
+      description: >
+        New private connections using the token fail after this request
+
+        completes; established connections remain open. Expired tokens return
+        not found.
+      operationId: deleteSandboxPortToken
       parameters:
-        - $ref: '#/components/parameters/DiskId'
-        - name: userType
+        - $ref: '#/components/parameters/SandboxId'
+        - name: token_id
           in: path
           required: true
-          description: The type of user authentication
           schema:
             type: string
-            enum:
-              - token
-              - awssts
-        - name: identifier
-          in: query
-          required: false
-          description: >
-            Identifier of the user to remove, as returned in the creation or
-            list response. For awssts users, this is the IAM ARN.
-          schema:
-            type: string
-        - name: principal
-          in: query
-          required: false
-          deprecated: true
-          description: Use identifier instead.
-          schema:
-            type: string
+            pattern: ^[0-9a-f]{64}$
       responses:
-        '200':
-          description: User removed successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ApiResponse_Message'
-        '400':
-          $ref: '#/components/responses/ValidationError'
+        '204':
+          description: Port token was revoked
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 components:
   parameters:
-    DiskId:
-      name: id
+    SandboxId:
+      name: sid
       in: path
       required: true
-      description: Disk ID (format `dsk-{16 hex chars}`)
+      description: Sandbox UUID
       schema:
         type: string
-        pattern: ^dsk-[0-9a-f]{16}$
-        example: dsk-0123456789abcdef
+        format: uuid
+  responses:
+    Unauthorized:
+      description: Invalid or missing authentication credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
   schemas:
-    ApiResponse_Message:
-      type: object
-      required:
-        - success
-        - data
-      properties:
-        success:
-          type: boolean
-          example: true
-        data:
-          type: object
-          properties:
-            message:
-              type: string
     ErrorResponse:
       type: object
       required:
@@ -189,25 +177,6 @@ components:
         code:
           type: string
           description: Stable machine-readable error code.
-  responses:
-    ValidationError:
-      description: Validation error
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Invalid or missing authentication credentials
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    InternalError:
-      description: Internal server error
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

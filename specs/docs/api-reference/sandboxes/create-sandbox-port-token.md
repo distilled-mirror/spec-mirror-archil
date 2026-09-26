@@ -2,15 +2,20 @@
 > Fetch the complete documentation index at: https://docs.archil.com/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-# Remove Disk User
+# Create Sandbox Port Token
 
-> Removes an authorized user from a disk.
+> Creates token-authorized HTTP access to one port. Send the raw token returned
+by this request in the `X-Archil-Token` request header at the stable
+`<port>-<sandbox-route-id>.<zone>` hostname. Public ports accept connections
+without a token; otherwise a valid token for that sandbox and port is required.
+The token is not returned again.
+
 
 
 
 ## OpenAPI
 
-````yaml DELETE /api/disks/{id}/users/{userType}
+````yaml POST /api/sandboxes/{sid}/port-tokens
 openapi: 3.1.0
 info:
   title: Archil Control Plane API
@@ -102,65 +107,75 @@ tags:
       Manage API keys (also called API tokens) used to authenticate Control
       Plane API requests. Distinct from disk tokens.
 paths:
-  /api/disks/{id}/users/{userType}:
-    delete:
+  /api/sandboxes/{sid}/port-tokens:
+    post:
       tags:
-        - Disk Users
-      summary: Remove user from disk
-      description: Removes an authorized user from a disk.
-      operationId: removeDiskUser
+        - Sandboxes
+      summary: Create a private sandbox port token
+      description: >
+        Creates token-authorized HTTP access to one port. Send the raw token
+        returned
+
+        by this request in the `X-Archil-Token` request header at the stable
+
+        `<port>-<sandbox-route-id>.<zone>` hostname. Public ports accept
+        connections
+
+        without a token; otherwise a valid token for that sandbox and port is
+        required.
+
+        The token is not returned again.
+      operationId: createSandboxPortToken
       parameters:
-        - $ref: '#/components/parameters/DiskId'
-        - name: userType
-          in: path
-          required: true
-          description: The type of user authentication
-          schema:
-            type: string
-            enum:
-              - token
-              - awssts
-        - name: identifier
-          in: query
-          required: false
-          description: >
-            Identifier of the user to remove, as returned in the creation or
-            list response. For awssts users, this is the IAM ARN.
-          schema:
-            type: string
-        - name: principal
-          in: query
-          required: false
-          deprecated: true
-          description: Use identifier instead.
-          schema:
-            type: string
+        - $ref: '#/components/parameters/SandboxId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSandboxPortTokenRequest'
       responses:
-        '200':
-          description: User removed successfully
+        '201':
+          description: Port token was created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Message'
+                $ref: '#/components/schemas/ApiResponse_CreatedSandboxPortToken'
         '400':
           $ref: '#/components/responses/ValidationError'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 components:
   parameters:
-    DiskId:
-      name: id
+    SandboxId:
+      name: sid
       in: path
       required: true
-      description: Disk ID (format `dsk-{16 hex chars}`)
+      description: Sandbox UUID
       schema:
         type: string
-        pattern: ^dsk-[0-9a-f]{16}$
-        example: dsk-0123456789abcdef
+        format: uuid
   schemas:
-    ApiResponse_Message:
+    CreateSandboxPortTokenRequest:
+      type: object
+      required:
+        - port
+      properties:
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        ttl:
+          type: string
+          description: |
+            Token lifetime as a Go duration string (for example, "4m", "1h",
+            or "24h"). Maximum 365 days ("8760h"). Omit for no expiration.
+          example: 4m
+    ApiResponse_CreatedSandboxPortToken:
       type: object
       required:
         - success
@@ -170,10 +185,21 @@ components:
           type: boolean
           example: true
         data:
-          type: object
+          $ref: '#/components/schemas/CreatedSandboxPortToken'
+    CreatedSandboxPortToken:
+      allOf:
+        - $ref: '#/components/schemas/SandboxPortToken'
+        - type: object
+          required:
+            - hostname
+            - token
           properties:
-            message:
+            hostname:
               type: string
+              description: Stable sandbox port hostname, shared with public access.
+            token:
+              type: string
+              description: Raw token returned only when the token is created.
     ErrorResponse:
       type: object
       required:
@@ -189,6 +215,28 @@ components:
         code:
           type: string
           description: Stable machine-readable error code.
+    SandboxPortToken:
+      type: object
+      required:
+        - id
+        - port
+        - created_at
+      properties:
+        id:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: Stable token identifier used for get and revoke operations.
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          description: When the token expires. Absent for a non-expiring token.
   responses:
     ValidationError:
       description: Validation error
@@ -198,6 +246,12 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
     Unauthorized:
       description: Invalid or missing authentication credentials
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: Resource not found
       content:
         application/json:
           schema:

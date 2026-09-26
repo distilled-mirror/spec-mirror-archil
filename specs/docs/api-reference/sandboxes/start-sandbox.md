@@ -195,6 +195,9 @@ components:
         error:
           type: string
           example: Invalid request parameters
+        code:
+          type: string
+          description: Stable machine-readable error code.
     Sandbox:
       type: object
       required:
@@ -204,6 +207,7 @@ components:
         - vcpu_count
         - mem_size_mib
         - max_ttl_seconds
+        - idle_ttl_seconds
         - max_concurrent_execs
         - base_image
         - created_at
@@ -227,12 +231,21 @@ components:
         max_ttl_seconds:
           type: integer
           description: >-
-            Lifetime budget for each powered-on session. Activity does not
-            extend the deadline; starting or resuming the sandbox begins a fresh
-            session.
+            Lifetime budget applied independently to each powered-on session.
+            Expiry pauses the sandbox, preserving memory and processes for
+            resume. Defaults to 24 hours and can be reset with the timeout
+            endpoint.
+        idle_ttl_seconds:
+          type: integer
+          description: >-
+            Seconds without a direct process connection before the sandbox
+            pauses, preserving memory and processes for resume. Zero disables
+            idle expiry.
         max_concurrent_execs:
           type: integer
-          description: Maximum concurrently attached process sessions
+          description: >-
+            Maximum number of concurrently attached process sessions. Detached
+            processes and one-shot process controls do not count.
         base_image:
           type: string
           description: OCI reference requested when the sandbox was created.
@@ -244,8 +257,15 @@ components:
           description: Sandbox CPU architecture.
         endpoints:
           type: array
+          description: Public hostnames published by enabled sandbox services.
           items:
             $ref: '#/components/schemas/SandboxEndpoint'
+        enable_service_ingress:
+          type: boolean
+          default: false
+          description: >-
+            Whether services inside the sandbox can expose ingress. Explicit API
+            port exposure remains available regardless of this setting.
         created_at:
           type: string
           format: date-time
@@ -258,12 +278,15 @@ components:
         last_active_at:
           type: string
           format: date-time
-        expires_at:
-          type: string
-          format: date-time
-          description: Current powered-on session deadline; absent while inactive.
         exit_reason:
           type: string
+        checkpoint:
+          type: string
+          description: |
+            Disk checkpoint the current session leaves behind. Present while
+            pausing, paused, stopping, or stopped, and committed once the
+            sandbox is paused or stopped. Pass it to the fork endpoint to fork
+            exactly this state.
     SandboxState:
       type: string
       enum:

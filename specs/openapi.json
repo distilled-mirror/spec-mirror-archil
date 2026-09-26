@@ -661,8 +661,11 @@
               }
             }
           },
-          "429": {
-            "description": "Sandbox capacity reached",
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "description": "No sandbox capacity is available; retry",
             "content": {
               "application/json": {
                 "schema": {
@@ -670,9 +673,6 @@
                 }
               }
             }
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
           }
         }
       }
@@ -753,7 +753,7 @@
       "post": {
         "operationId": "createSandboxConnection",
         "summary": "Create a sandbox process connection",
-        "description": "Returns a short-lived WebSocket URL for the process API in a running\nsandbox. The URL contains a signed token that expires at `expires_at`.\n",
+        "description": "Returns a short-lived WebSocket URL used by the sandbox process API.\nThe URL contains a signed token that expires at `expires_at`; an open\nWebSocket can remain connected after the token expires.\n",
         "tags": [
           "Sandboxes"
         ],
@@ -788,6 +788,314 @@
                 }
               }
             }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/ports": {
+      "get": {
+        "operationId": "listSandboxPorts",
+        "summary": "List exposed sandbox ports",
+        "description": "Lists the explicitly exposed public ports for the sandbox.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Exposed sandbox ports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxPortList"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/ports/{port}": {
+      "put": {
+        "operationId": "exposeSandboxPort",
+        "summary": "Expose a sandbox port",
+        "description": "Creates or returns public access to a TCP port in the sandbox.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "name": "port",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Existing exposed port",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxPort"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Port was exposed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxPort"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSandboxPort",
+        "summary": "Stop exposing a sandbox port",
+        "description": "Removes an explicitly exposed public port. An enabled sandbox service publishing the same TCP port remains publicly reachable.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "name": "port",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Sandbox port is no longer explicitly exposed"
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/port-tokens": {
+      "get": {
+        "operationId": "listSandboxPortTokens",
+        "summary": "List sandbox port tokens",
+        "description": "Lists unexpired private port token metadata without returning raw tokens.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "$ref": "#/components/parameters/Limit"
+          },
+          {
+            "$ref": "#/components/parameters/Cursor"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sandbox port tokens",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxPortTokenList"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSandboxPortToken",
+        "summary": "Create a private sandbox port token",
+        "description": "Creates token-authorized HTTP access to one port. Send the raw token returned\nby this request in the `X-Archil-Token` request header at the stable\n`<port>-<sandbox-route-id>.<zone>` hostname. Public ports accept connections\nwithout a token; otherwise a valid token for that sandbox and port is required.\nThe token is not returned again.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateSandboxPortTokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Port token was created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_CreatedSandboxPortToken"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/port-tokens/{token_id}": {
+      "get": {
+        "operationId": "getSandboxPortToken",
+        "summary": "Get a sandbox port token",
+        "description": "Returns token metadata without its raw token. Expired tokens return not found.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Sandbox port token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxPortToken"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteSandboxPortToken",
+        "summary": "Revoke a sandbox port token",
+        "description": "New private connections using the token fail after this request\ncompletes; established connections remain open. Expired tokens return not found.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          },
+          {
+            "name": "token_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Port token was revoked"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -861,7 +1169,7 @@
       "post": {
         "operationId": "forkSandbox",
         "summary": "Fork a sandbox",
-        "description": "Checkpoints a running source sandbox and creates an isolated writable\ndisk branch. Forks from running or paused sources resume from the\nsource's CPU, memory, and disk state. Forks from stopped sources\ncold-boot from the saved disk checkpoint. A running source is\nresumed after its checkpoint; paused and stopped sources remain\ninactive. Forked sandboxes may themselves be forked.\n",
+        "description": "Checkpoints a running source sandbox and creates an isolated writable\ndisk branch. Forks from running or paused sources resume from the\nsource's CPU, memory, and disk state. Forks from stopped sources\ncold-boot from the saved disk checkpoint. A running source is\nresumed after its checkpoint; paused and stopped sources remain\ninactive. Forked sandboxes may themselves be forked.\n\nPassing `checkpoint` forks that saved state without touching the\nsource, so clients can pause once, wait for the checkpoint, and fork\nit from any number of places. Without `checkpoint` the server pauses a\nrunning source inside the request and resumes it afterwards; that path\nis kept for older clients and is bounded by the request timeout.\n",
         "tags": [
           "Sandboxes"
         ],
@@ -970,6 +1278,177 @@
           },
           "409": {
             "description": "The sandbox is not paused, is shutting down, or a cold start is already in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/RetryableUnavailable"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/network": {
+      "get": {
+        "operationId": "getSandboxNetwork",
+        "summary": "Get a sandbox's network policy",
+        "description": "Returns the last committed network policy for a running, paused, or stopped sandbox.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The last committed network policy",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxNetwork"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/RetryableUnavailable"
+          }
+        }
+      },
+      "put": {
+        "operationId": "updateSandboxNetwork",
+        "summary": "Replace a running sandbox's network policy",
+        "description": "Applies the complete replacement policy to a running sandbox, then\nrecords it as the current policy. A rejected update leaves the previous\npolicy unchanged. Free-plan accounts cannot update network policies and\nreceive 403 with code sandbox_network_plan_required. For paid accounts,\nan empty object restores unrestricted egress. Existing network sessions\nare not terminated; the replacement governs new connections and is\nretained across later stops and resumes. Sandboxes\nthat are not running, or whose policy changes concurrently, return 409.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxNetwork"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The network policy was replaced",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxNetwork"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "description": "Network policy updates require a paid plan (sandbox_network_plan_required)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The sandbox is not running or the network policy changed concurrently",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "$ref": "#/components/responses/RetryableUnavailable"
+          }
+        }
+      }
+    },
+    "/api/sandboxes/{sid}/timeout": {
+      "post": {
+        "operationId": "setSandboxTimeout",
+        "summary": "Set a sandbox's timeouts",
+        "description": "Replaces one or both sandbox timeout settings. Updating `timeout` while\nthe sandbox is running resets its hard expiration deadline to that many\nseconds from now. Updating `idle_ttl_seconds` resets the idle\ncountdown when no direct process connection is active; zero disables\nidle expiry. Omitted settings remain unchanged. Updates are retained\nacross later stops and starts. For an inactive sandbox, they apply to\nthe next powered-on session. Sandboxes that are starting or shutting\ndown, or whose timeout changes concurrently, return 409.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SandboxTimeoutRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The sandbox timeouts were set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The sandbox is transitioning or its timeout changed concurrently",
             "content": {
               "application/json": {
                 "schema": {
@@ -1361,6 +1840,10 @@
           "error": {
             "type": "string",
             "example": "Invalid request parameters"
+          },
+          "code": {
+            "type": "string",
+            "description": "Stable machine-readable error code."
           }
         }
       },
@@ -1412,6 +1895,118 @@
           "deleted"
         ]
       },
+      "SandboxNetworkAction": {
+        "type": "string",
+        "enum": [
+          "allow",
+          "deny"
+        ]
+      },
+      "SandboxEgressPolicy": {
+        "type": "object",
+        "description": "Deny targets take precedence when an address or domain matches both lists. When domain rules or drain selectors are present, TCP ports 80 and 443 are restricted to HTTP/1.1 or HTTP/2. Plaintext HTTP authority is enforced on port 80, but requests matching a transformation rule are rejected unless the rule also forwards. Port 443 is TLS-terminated; both TLS SNI and HTTP authority are evaluated, and the HTTP authority selects the upstream, any request transformations, and any request forwarding. DNS to the sandbox's configured resolvers is allowed and UDP port 443 is denied.",
+        "required": [
+          "default"
+        ],
+        "properties": {
+          "default": {
+            "$ref": "#/components/schemas/SandboxNetworkAction"
+          },
+          "allow": {
+            "type": "array",
+            "items": {
+              "oneOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "$ref": "#/components/schemas/SandboxEgressRule"
+                }
+              ]
+            },
+            "description": "Allowed IPv4 addresses, CIDR ranges, exact domains, wildcard domains beginning with `*.`, or target objects with optional outbound HTTPS request transformations. A wildcard matches subdomains but not the apex domain, including when applying transformations."
+          },
+          "deny": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Denied IPv4 addresses, CIDR ranges, exact domains, or wildcard domains beginning with `*.`. A wildcard matches subdomains but not the apex domain."
+          },
+          "drain_on_pause": {
+            "type": "array",
+            "description": "Optional hosts whose HTTP(S) requests should finish before pausing, regardless of URL path. Pausing gates new matching requests and waits up to ten minutes by default for active responses, including streams, before taking a snapshot. Errors stop counting, and expiry proceeds with the snapshot. This does not limit requests during normal operation. Selectors do not grant network access. Matching uses the original request host before transformations or forwarding. Only TCP ports 80 and 443 are supported. Connections may need to be retried after resume.",
+            "items": {
+              "type": "string",
+              "description": "Lowercase hostname pattern without a scheme, port, or path. Asterisk matches zero or more characters; *.example.com matches subdomains, not example.com. Use * for every host.",
+              "example": "bedrock-runtime.*.amazonaws.com"
+            }
+          }
+        }
+      },
+      "SandboxEgressRule": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "target"
+        ],
+        "properties": {
+          "target": {
+            "type": "string",
+            "description": "Target allowed by this rule. Effective transformations and forwarding require an exact or wildcard lowercase domain."
+          },
+          "transform": {
+            "$ref": "#/components/schemas/SandboxEgressTransform"
+          },
+          "forward_url": {
+            "type": "string",
+            "format": "uri",
+            "description": "Absolute public HTTPS URL that receives this rule's permitted HTTP and HTTPS requests instead of their original upstream. The original path is appended to this URL, and Archil overwrites the archil-forwarded-host, archil-forwarded-scheme, archil-forwarded-port, archil-forwarded-path, and archil-sandbox-id headers with request metadata. A transform on the same rule is applied before forwarding, so the forwarded request carries the transformed headers. URLs containing credentials, a query, or a fragment are rejected."
+          }
+        }
+      },
+      "SandboxEgressTransform": {
+        "type": "object",
+        "description": "Optional outbound HTTPS request transformations. An omitted or empty transform leaves the rule as an ordinary allow without request mutations.",
+        "additionalProperties": false,
+        "properties": {
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Outbound HTTPS request headers to set, overwriting values supplied by the sandbox."
+          }
+        }
+      },
+      "SandboxNetwork": {
+        "type": "object",
+        "description": "Sandbox network policy. New sandboxes on free plans receive deny-all\negress with no allowlist exceptions. Start/resume and forks retain the\nstored policy. For paid accounts, egress is unrestricted when omitted.\n",
+        "properties": {
+          "egress": {
+            "$ref": "#/components/schemas/SandboxEgressPolicy"
+          }
+        }
+      },
+      "SandboxTimeoutRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "minProperties": 1,
+        "properties": {
+          "timeout": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 86400,
+            "description": "Seconds from now until a running sandbox expires, and the lifetime budget for its next powered-on session."
+          },
+          "idle_ttl_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400,
+            "description": "Seconds without a direct process connection before the sandbox pauses. Zero disables idle expiry."
+          }
+        }
+      },
       "Sandbox": {
         "type": "object",
         "required": [
@@ -1421,6 +2016,7 @@
           "vcpu_count",
           "mem_size_mib",
           "max_ttl_seconds",
+          "idle_ttl_seconds",
           "max_concurrent_execs",
           "base_image",
           "created_at",
@@ -1449,11 +2045,15 @@
           },
           "max_ttl_seconds": {
             "type": "integer",
-            "description": "Lifetime budget for each powered-on session. Activity does not extend the deadline; starting or resuming the sandbox begins a fresh session."
+            "description": "Lifetime budget applied independently to each powered-on session. Expiry pauses the sandbox, preserving memory and processes for resume. Defaults to 24 hours and can be reset with the timeout endpoint."
+          },
+          "idle_ttl_seconds": {
+            "type": "integer",
+            "description": "Seconds without a direct process connection before the sandbox pauses, preserving memory and processes for resume. Zero disables idle expiry."
           },
           "max_concurrent_execs": {
             "type": "integer",
-            "description": "Maximum concurrently attached process sessions"
+            "description": "Maximum number of concurrently attached process sessions. Detached processes and one-shot process controls do not count."
           },
           "base_image": {
             "type": "string",
@@ -1469,9 +2069,15 @@
           },
           "endpoints": {
             "type": "array",
+            "description": "Public hostnames published by enabled sandbox services.",
             "items": {
               "$ref": "#/components/schemas/SandboxEndpoint"
             }
+          },
+          "enable_service_ingress": {
+            "type": "boolean",
+            "default": false,
+            "description": "Whether services inside the sandbox can expose ingress. Explicit API port exposure remains available regardless of this setting."
           },
           "created_at": {
             "type": "string",
@@ -1489,13 +2095,12 @@
             "type": "string",
             "format": "date-time"
           },
-          "expires_at": {
-            "type": "string",
-            "format": "date-time",
-            "description": "Current powered-on session deadline; absent while inactive."
-          },
           "exit_reason": {
             "type": "string"
+          },
+          "checkpoint": {
+            "type": "string",
+            "description": "Disk checkpoint the current session leaves behind. Present while\npausing, paused, stopping, or stopped, and committed once the\nsandbox is paused or stopped. Pass it to the fork endpoint to fork\nexactly this state.\n"
           }
         }
       },
@@ -1513,6 +2118,206 @@
           },
           "hostname": {
             "type": "string"
+          }
+        }
+      },
+      "SandboxPort": {
+        "type": "object",
+        "required": [
+          "port",
+          "hostname"
+        ],
+        "properties": {
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "hostname": {
+            "type": "string"
+          }
+        }
+      },
+      "SandboxPortList": {
+        "type": "object",
+        "required": [
+          "ports"
+        ],
+        "properties": {
+          "ports": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SandboxPort"
+            }
+          }
+        }
+      },
+      "ApiResponse_SandboxPort": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/SandboxPort"
+          }
+        }
+      },
+      "ApiResponse_SandboxPortList": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/SandboxPortList"
+          }
+        }
+      },
+      "SandboxPortToken": {
+        "type": "object",
+        "required": [
+          "id",
+          "port",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Stable token identifier used for get and revoke operations."
+          },
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the token expires. Absent for a non-expiring token."
+          }
+        }
+      },
+      "CreatedSandboxPortToken": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/SandboxPortToken"
+          },
+          {
+            "type": "object",
+            "required": [
+              "hostname",
+              "token"
+            ],
+            "properties": {
+              "hostname": {
+                "type": "string",
+                "description": "Stable sandbox port hostname, shared with public access."
+              },
+              "token": {
+                "type": "string",
+                "description": "Raw token returned only when the token is created."
+              }
+            }
+          }
+        ]
+      },
+      "CreateSandboxPortTokenRequest": {
+        "type": "object",
+        "required": [
+          "port"
+        ],
+        "properties": {
+          "port": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 65535
+          },
+          "ttl": {
+            "type": "string",
+            "description": "Token lifetime as a Go duration string (for example, \"4m\", \"1h\",\nor \"24h\"). Maximum 365 days (\"8760h\"). Omit for no expiration.\n",
+            "example": "4m"
+          }
+        }
+      },
+      "SandboxPortTokenList": {
+        "type": "object",
+        "required": [
+          "tokens"
+        ],
+        "properties": {
+          "tokens": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SandboxPortToken"
+            }
+          }
+        }
+      },
+      "ApiResponse_CreatedSandboxPortToken": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/CreatedSandboxPortToken"
+          }
+        }
+      },
+      "ApiResponse_SandboxPortToken": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/SandboxPortToken"
+          }
+        }
+      },
+      "ApiResponse_SandboxPortTokenList": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/SandboxPortTokenList"
+          },
+          "nextCursor": {
+            "type": "string",
+            "description": "Set when more port tokens remain."
           }
         }
       },
@@ -1565,6 +2370,22 @@
           }
         }
       },
+      "ApiResponse_SandboxNetwork": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/SandboxNetwork"
+          }
+        }
+      },
       "CreateSandboxRequest": {
         "type": "object",
         "properties": {
@@ -1590,7 +2411,21 @@
           "base_image": {
             "type": "string",
             "default": "ubuntu:26.04",
-            "description": "Public Linux OCI image reference. Docker shorthand and tags are accepted."
+            "description": "Public Linux OCI image reference. Docker shorthand and tags are accepted; the selected platform manifest is pinned at creation."
+          },
+          "ports": {
+            "type": "array",
+            "description": "TCP ports to expose publicly when the sandbox is created.",
+            "items": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 65535
+            }
+          },
+          "enable_service_ingress": {
+            "type": "boolean",
+            "default": false,
+            "description": "Allow services inside the sandbox to expose ingress. When false, services still run but their ports must be exposed explicitly through the API. Retained across starts, resumes, and forks."
           },
           "env": {
             "type": "object",
@@ -1599,19 +2434,25 @@
             },
             "description": "Environment variables applied to every process"
           },
+          "network": {
+            "$ref": "#/components/schemas/SandboxNetwork"
+          },
           "max_ttl_seconds": {
             "type": "integer",
             "minimum": 60,
-            "maximum": 28800,
-            "default": 28800,
-            "description": "Lifetime budget for each powered-on session. Activity does not extend the deadline; starting or resuming the sandbox begins a fresh session."
+            "maximum": 86400,
+            "default": 86400,
+            "description": "Lifetime budget applied independently to each powered-on session. Expiry pauses the sandbox, preserving memory and processes for resume."
+          },
+          "idle_ttl_seconds": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 86400,
+            "description": "Pause after this many seconds without a direct process connection, preserving memory and processes for resume. Omit or set to zero to disable idle expiry."
           },
           "max_concurrent_execs": {
             "type": "integer",
-            "minimum": 1,
-            "maximum": 256,
-            "default": 32,
-            "description": "Maximum concurrently attached process sessions"
+            "description": "Maximum number of concurrently attached process sessions. Detached processes and one-shot process controls do not count."
           }
         }
       },
@@ -1624,6 +2465,10 @@
             "maxLength": 63,
             "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
             "description": "Name for the fork. A random word-list name is generated when omitted."
+          },
+          "checkpoint": {
+            "type": "string",
+            "description": "Fork this checkpoint of the source, as returned by pause, stop, or\ndescribe, instead of the source's live state. The source is neither\npaused nor resumed. Only the current session's checkpoint and the\none before it are accepted; an uncommitted or superseded checkpoint\nis rejected with 409.\n"
           }
         }
       },

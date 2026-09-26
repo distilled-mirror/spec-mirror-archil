@@ -2,15 +2,15 @@
 > Fetch the complete documentation index at: https://docs.archil.com/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-# Remove Disk User
+# Get Sandbox Port Token
 
-> Removes an authorized user from a disk.
+> Returns token metadata without its raw token. Expired tokens return not found.
 
 
 
 ## OpenAPI
 
-````yaml DELETE /api/disks/{id}/users/{userType}
+````yaml GET /api/sandboxes/{sid}/port-tokens/{token_id}
 openapi: 3.1.0
 info:
   title: Archil Control Plane API
@@ -102,65 +102,48 @@ tags:
       Manage API keys (also called API tokens) used to authenticate Control
       Plane API requests. Distinct from disk tokens.
 paths:
-  /api/disks/{id}/users/{userType}:
-    delete:
+  /api/sandboxes/{sid}/port-tokens/{token_id}:
+    get:
       tags:
-        - Disk Users
-      summary: Remove user from disk
-      description: Removes an authorized user from a disk.
-      operationId: removeDiskUser
+        - Sandboxes
+      summary: Get a sandbox port token
+      description: >-
+        Returns token metadata without its raw token. Expired tokens return not
+        found.
+      operationId: getSandboxPortToken
       parameters:
-        - $ref: '#/components/parameters/DiskId'
-        - name: userType
+        - $ref: '#/components/parameters/SandboxId'
+        - name: token_id
           in: path
           required: true
-          description: The type of user authentication
           schema:
             type: string
-            enum:
-              - token
-              - awssts
-        - name: identifier
-          in: query
-          required: false
-          description: >
-            Identifier of the user to remove, as returned in the creation or
-            list response. For awssts users, this is the IAM ARN.
-          schema:
-            type: string
-        - name: principal
-          in: query
-          required: false
-          deprecated: true
-          description: Use identifier instead.
-          schema:
-            type: string
+            pattern: ^[0-9a-f]{64}$
       responses:
         '200':
-          description: User removed successfully
+          description: Sandbox port token
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiResponse_Message'
-        '400':
-          $ref: '#/components/responses/ValidationError'
+                $ref: '#/components/schemas/ApiResponse_SandboxPortToken'
         '401':
           $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 components:
   parameters:
-    DiskId:
-      name: id
+    SandboxId:
+      name: sid
       in: path
       required: true
-      description: Disk ID (format `dsk-{16 hex chars}`)
+      description: Sandbox UUID
       schema:
         type: string
-        pattern: ^dsk-[0-9a-f]{16}$
-        example: dsk-0123456789abcdef
+        format: uuid
   schemas:
-    ApiResponse_Message:
+    ApiResponse_SandboxPortToken:
       type: object
       required:
         - success
@@ -170,10 +153,29 @@ components:
           type: boolean
           example: true
         data:
-          type: object
-          properties:
-            message:
-              type: string
+          $ref: '#/components/schemas/SandboxPortToken'
+    SandboxPortToken:
+      type: object
+      required:
+        - id
+        - port
+        - created_at
+      properties:
+        id:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: Stable token identifier used for get and revoke operations.
+        port:
+          type: integer
+          minimum: 1
+          maximum: 65535
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          description: When the token expires. Absent for a non-expiring token.
     ErrorResponse:
       type: object
       required:
@@ -190,14 +192,14 @@ components:
           type: string
           description: Stable machine-readable error code.
   responses:
-    ValidationError:
-      description: Validation error
+    Unauthorized:
+      description: Invalid or missing authentication credentials
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Invalid or missing authentication credentials
+    NotFound:
+      description: Resource not found
       content:
         application/json:
           schema:

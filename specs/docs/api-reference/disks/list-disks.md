@@ -246,6 +246,9 @@ components:
         error:
           type: string
           example: Invalid request parameters
+        code:
+          type: string
+          description: Stable machine-readable error code.
     MountResponse:
       type: object
       properties:

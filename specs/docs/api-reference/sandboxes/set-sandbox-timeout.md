@@ -2,27 +2,23 @@
 > Fetch the complete documentation index at: https://docs.archil.com/llms.txt
 > Use this file to discover all available pages before exploring further.
 
-# Fork Sandbox
+# Set Sandbox Timeouts
 
-> Checkpoints a running source sandbox and creates an isolated writable
-disk branch. Forks from running or paused sources resume from the
-source's CPU, memory, and disk state. Forks from stopped sources
-cold-boot from the saved disk checkpoint. A running source is
-resumed after its checkpoint; paused and stopped sources remain
-inactive. Forked sandboxes may themselves be forked.
-
-Passing `checkpoint` forks that saved state without touching the
-source, so clients can pause once, wait for the checkpoint, and fork
-it from any number of places. Without `checkpoint` the server pauses a
-running source inside the request and resumes it afterwards; that path
-is kept for older clients and is bounded by the request timeout.
+> Replaces one or both sandbox timeout settings. Updating `timeout` while
+the sandbox is running resets its hard expiration deadline to that many
+seconds from now. Updating `idle_ttl_seconds` resets the idle
+countdown when no direct process connection is active; zero disables
+idle expiry. Omitted settings remain unchanged. Updates are retained
+across later stops and starts. For an inactive sandbox, they apply to
+the next powered-on session. Sandboxes that are starting or shutting
+down, or whose timeout changes concurrently, return 409.
 
 
 
 
 ## OpenAPI
 
-````yaml POST /api/sandboxes/{sid}/fork
+````yaml POST /api/sandboxes/{sid}/timeout
 openapi: 3.1.0
 info:
   title: Archil Control Plane API
@@ -114,37 +110,32 @@ tags:
       Manage API keys (also called API tokens) used to authenticate Control
       Plane API requests. Distinct from disk tokens.
 paths:
-  /api/sandboxes/{sid}/fork:
+  /api/sandboxes/{sid}/timeout:
     post:
       tags:
         - Sandboxes
-      summary: Fork a sandbox
+      summary: Set a sandbox's timeouts
       description: |
-        Checkpoints a running source sandbox and creates an isolated writable
-        disk branch. Forks from running or paused sources resume from the
-        source's CPU, memory, and disk state. Forks from stopped sources
-        cold-boot from the saved disk checkpoint. A running source is
-        resumed after its checkpoint; paused and stopped sources remain
-        inactive. Forked sandboxes may themselves be forked.
-
-        Passing `checkpoint` forks that saved state without touching the
-        source, so clients can pause once, wait for the checkpoint, and fork
-        it from any number of places. Without `checkpoint` the server pauses a
-        running source inside the request and resumes it afterwards; that path
-        is kept for older clients and is bounded by the request timeout.
-      operationId: forkSandbox
+        Replaces one or both sandbox timeout settings. Updating `timeout` while
+        the sandbox is running resets its hard expiration deadline to that many
+        seconds from now. Updating `idle_ttl_seconds` resets the idle
+        countdown when no direct process connection is active; zero disables
+        idle expiry. Omitted settings remain unchanged. Updates are retained
+        across later stops and starts. For an inactive sandbox, they apply to
+        the next powered-on session. Sandboxes that are starting or shutting
+        down, or whose timeout changes concurrently, return 409.
+      operationId: setSandboxTimeout
       parameters:
         - $ref: '#/components/parameters/SandboxId'
-        - $ref: '#/components/parameters/Wait'
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ForkSandboxRequest'
+              $ref: '#/components/schemas/SandboxTimeoutRequest'
       responses:
-        '202':
-          description: The fork was created and its start is pending
+        '200':
+          description: The sandbox timeouts were set
           content:
             application/json:
               schema:
@@ -156,7 +147,7 @@ paths:
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
-          description: The source cannot be paused or its fork checkpoint is unavailable
+          description: The sandbox is transitioning or its timeout changed concurrently
           content:
             application/json:
               schema:
@@ -175,34 +166,26 @@ components:
       schema:
         type: string
         format: uuid
-    Wait:
-      name: wait
-      in: query
-      required: false
-      description: Hold the request for a completed sandbox lifecycle transition
-      schema:
-        type: boolean
-        default: false
   schemas:
-    ForkSandboxRequest:
+    SandboxTimeoutRequest:
       type: object
+      additionalProperties: false
+      minProperties: 1
       properties:
-        name:
-          type: string
-          minLength: 1
-          maxLength: 63
-          pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
+        timeout:
+          type: integer
+          minimum: 60
+          maximum: 86400
           description: >-
-            Name for the fork. A random word-list name is generated when
-            omitted.
-        checkpoint:
-          type: string
-          description: |
-            Fork this checkpoint of the source, as returned by pause, stop, or
-            describe, instead of the source's live state. The source is neither
-            paused nor resumed. Only the current session's checkpoint and the
-            one before it are accepted; an uncommitted or superseded checkpoint
-            is rejected with 409.
+            Seconds from now until a running sandbox expires, and the lifetime
+            budget for its next powered-on session.
+        idle_ttl_seconds:
+          type: integer
+          minimum: 0
+          maximum: 86400
+          description: >-
+            Seconds without a direct process connection before the sandbox
+            pauses. Zero disables idle expiry.
     ApiResponse_Sandbox:
       type: object
       required:
