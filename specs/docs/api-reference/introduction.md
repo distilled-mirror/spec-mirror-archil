@@ -16,12 +16,12 @@ The Archil Control Plane API provides programmatic access to manage disks, mount
 
 Each region has its own control plane endpoint:
 
-| Region                    | Region ID         | Endpoint                                       |
-| ------------------------- | ----------------- | ---------------------------------------------- |
-| AWS US East (N. Virginia) | `aws-us-east-1`   | `control.green.us-east-1.aws.prod.archil.com`  |
-| AWS EU West (Ireland)     | `aws-eu-west-1`   | `control.green.eu-west-1.aws.prod.archil.com`  |
-| AWS US West (Oregon)      | `aws-us-west-2`   | `control.green.us-west-2.aws.prod.archil.com`  |
-| GCP US Central (Iowa)     | `gcp-us-central1` | `control.blue.us-central1.gcp.prod.archil.com` |
+| Region | Region ID | Endpoint |
+| - | - | - |
+| AWS US East (N. Virginia) | `aws-us-east-1` | `control.green.us-east-1.aws.prod.archil.com` |
+| AWS EU West (Ireland) | `aws-eu-west-1` | `control.green.eu-west-1.aws.prod.archil.com` |
+| AWS US West (Oregon) | `aws-us-west-2` | `control.green.us-west-2.aws.prod.archil.com` |
+| GCP US Central (Iowa) | `gcp-us-central1` | `control.blue.us-central1.gcp.prod.archil.com` |
 
 ## Authentication
 
@@ -55,16 +55,16 @@ All responses use a consistent envelope:
 
 ## HTTP status codes
 
-| Code  | Description                                                     |
-| ----- | --------------------------------------------------------------- |
-| `200` | Success                                                         |
-| `202` | Accepted; an asynchronous operation started                     |
-| `400` | Bad request (validation error)                                  |
-| `403` | Forbidden (auth failure or access denied)                       |
-| `404` | Not found                                                       |
-| `409` | Resource state conflict                                         |
-| `429` | Capacity or concurrency limit reached                           |
-| `500` | Internal server error                                           |
+| Code | Description |
+| - | - |
+| `200` | Success |
+| `202` | Accepted; an asynchronous operation started |
+| `400` | Bad request (validation error) |
+| `403` | Forbidden (auth failure or access denied) |
+| `404` | Not found |
+| `409` | Resource state conflict |
+| `429` | Capacity or concurrency limit reached |
+| `500` | Internal server error |
 | `503` | Feature unavailable or lifecycle transition temporarily blocked |
 
 ## Disk ID format
