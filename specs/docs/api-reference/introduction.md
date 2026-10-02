@@ -86,3 +86,6 @@ For example: `dsk-0123456789abcdef`
 1. [Create an API key](/api-reference/tokens/create-token) in the console or via API
 2. Use the key in the `Authorization` header for all requests
 3. [Create your first disk](/api-reference/disks/create-disk) or [persistent sandbox](/api-reference/sandboxes/create-sandbox)
+
+
+This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.
