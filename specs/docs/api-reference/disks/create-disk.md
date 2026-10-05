@@ -239,16 +239,11 @@ components:
       discriminator:
         propertyName: type
         mapping:
-          s3:
-            $ref: '#/components/schemas/S3Mount'
-          gcs:
-            $ref: '#/components/schemas/GCSMount'
-          r2:
-            $ref: '#/components/schemas/R2Mount'
-          s3-compatible:
-            $ref: '#/components/schemas/S3CompatibleMount'
-          azure-blob:
-            $ref: '#/components/schemas/AzureBlobMount'
+          s3: '#/components/schemas/S3Mount'
+          gcs: '#/components/schemas/GCSMount'
+          r2: '#/components/schemas/R2Mount'
+          s3-compatible: '#/components/schemas/S3CompatibleMount'
+          azure-blob: '#/components/schemas/AzureBlobMount'
     DiskUser:
       oneOf:
         - $ref: '#/components/schemas/TokenUser'
@@ -256,10 +251,8 @@ components:
       discriminator:
         propertyName: type
         mapping:
-          token:
-            $ref: '#/components/schemas/TokenUser'
-          awssts:
-            $ref: '#/components/schemas/AwsStsUser'
+          token: '#/components/schemas/TokenUser'
+          awssts: '#/components/schemas/AwsStsUser'
     AuthorizedUser:
       type: object
       properties:

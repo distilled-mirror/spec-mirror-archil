@@ -155,10 +155,8 @@ components:
       discriminator:
         propertyName: type
         mapping:
-          token:
-            $ref: '#/components/schemas/TokenUser'
-          awssts:
-            $ref: '#/components/schemas/AwsStsUser'
+          token: '#/components/schemas/TokenUser'
+          awssts: '#/components/schemas/AwsStsUser'
     ApiResponse_AuthorizedUser:
       type: object
       required:
