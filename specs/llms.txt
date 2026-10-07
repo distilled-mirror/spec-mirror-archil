@@ -36,9 +36,11 @@
 - [`disk` CLI](https://docs.archil.com/reference/disk-cli.md): Reference for the Node CLI that creates disks, runs `disk exec`, and manages API keys.
 - [Terraform provider](https://docs.archil.com/reference/terraform.md): Manage Archil disks, users, and API tokens with Infrastructure as Code
 - [Kubernetes CSI driver](https://docs.archil.com/reference/csi-driver.md): Documentation on mounting using the [Kubernetes Container Storage Interface](https://kubernetes-csi.github.io/docs/) (CSI) driver for Archil disks.
+- [Uninstall tools](https://docs.archil.com/reference/uninstall.md): Remove the Archil client, the disk CLI, and the CSI driver.
 - [Troubleshooting](https://docs.archil.com/reference/troubleshooting.md): Solutions to common issues with Archil disks
 - [Region availability](https://docs.archil.com/reference/regions.md): Archil regions and availability
 - [Verify Linux downloads](https://docs.archil.com/reference/verify-linux-downloads.md): Verify the authenticity and integrity of an Archil Linux release before installing it.
+- [Client Release Notes](https://docs.archil.com/reference/client-release-notes.md): Release history for the Archil client
 - [Changelog](https://docs.archil.com/reference/changelog.md): History of updates to the Archil platform and client
 - [Subprocessors](https://docs.archil.com/legal/subprocessors.md): Third parties Archil engages to process data on your behalf
 - [API Reference](https://docs.archil.com/api-reference/introduction.md): Programmatic access to the Archil Control Plane
