@@ -6,9 +6,11 @@
 
 > Cold-boots from the persisted configuration and disks. If the sandbox
 was paused, its memory snapshot is consumed and discarded before the
-new VM runs; disk state remains. Starting a running sandbox or a pending
-cold start is idempotent. A sandbox that is stopping, pausing, or
-pending a resume returns 409.
+new VM runs; disk state remains. Without mount changes, starting a running
+sandbox or a pending cold start is idempotent. A sandbox that is stopping,
+pausing, or pending a resume returns 409. Providing `mounts` replaces the
+additional disk mounts for this and later sessions and requires an inactive
+sandbox; omit it to preserve saved mounts.
 
 
 
@@ -112,47 +114,160 @@ paths:
       tags:
         - Sandboxes
       summary: Cold-start a sandbox
-      description: |
+      description: >
         Cold-boots from the persisted configuration and disks. If the sandbox
+
         was paused, its memory snapshot is consumed and discarded before the
-        new VM runs; disk state remains. Starting a running sandbox or a pending
-        cold start is idempotent. A sandbox that is stopping, pausing, or
-        pending a resume returns 409.
+
+        new VM runs; disk state remains. Without mount changes, starting a
+        running
+
+        sandbox or a pending cold start is idempotent. A sandbox that is
+        stopping,
+
+        pausing, or pending a resume returns 409. Providing `mounts` replaces
+        the
+
+        additional disk mounts for this and later sessions and requires an
+        inactive
+
+        sandbox; omit it to preserve saved mounts.
       operationId: startSandbox
       parameters:
         - $ref: '#/components/parameters/SandboxId'
         - $ref: '#/components/parameters/Wait'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSandboxRequest'
+            example:
+              mounts:
+                - disk_id: dsk-0123456789abcdef
+                  path: /mnt/data
       responses:
         '200':
-          description: The sandbox was already running
+          description: The sandbox is running
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse_Sandbox'
+              example:
+                success: true
+                data:
+                  sandbox_id: 019d158e-7100-7000-8000-0123456789ab
+                  name: agent-workspace
+                  status: running
+                  vcpu_count: 2
+                  mem_size_mib: 4096
+                  max_ttl_seconds: 86400
+                  idle_ttl_seconds: 0
+                  max_concurrent_execs: 32
+                  enable_service_ingress: false
+                  base_image: python:3.13
+                  mounts:
+                    - disk_id: dsk-0123456789abcdef
+                      path: /mnt/data
+                  created_at: '2026-10-06T12:00:00Z'
+                  last_active_at: '2026-10-06T12:00:05Z'
+                  running_at: '2026-10-06T12:00:05Z'
         '202':
           description: The sandbox start is pending
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse_Sandbox'
+              example:
+                success: true
+                data:
+                  sandbox_id: 019d158e-7100-7000-8000-0123456789ab
+                  name: agent-workspace
+                  status: pending
+                  vcpu_count: 2
+                  mem_size_mib: 4096
+                  max_ttl_seconds: 86400
+                  idle_ttl_seconds: 0
+                  max_concurrent_execs: 32
+                  enable_service_ingress: false
+                  base_image: python:3.13
+                  mounts:
+                    - disk_id: dsk-0123456789abcdef
+                      path: /mnt/data
+                  created_at: '2026-10-06T12:00:00Z'
+                  last_active_at: '2026-10-06T12:00:00Z'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          $ref: '#/components/responses/SandboxValidationError'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/PlainTextUnauthorized'
         '404':
-          $ref: '#/components/responses/NotFound'
-        '409':
-          description: >-
-            The previous VM is stopping or pausing, or a resume is already in
-            progress
+          description: Sandbox or mount disk not found or not accessible to this account
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                sandboxNotFound:
+                  summary: Sandbox not found
+                  value:
+                    success: false
+                    error: Sandbox not found
+                    code: not_found
+                diskNotFound:
+                  summary: Mount disk not found or not owned by this account
+                  value:
+                    success: false
+                    error: 'mounts[0]: disk dsk-0123456789abcdef not found'
+                    code: not_found
+        '409':
+          description: >-
+            Sandbox is stopping, pausing, being deleted, or resuming; mount
+            changes also conflict with a running or pending session
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                mountsWhileActive:
+                  summary: Mount changes require an inactive sandbox
+                  value:
+                    success: false
+                    error: >-
+                      mounts can only change on a cold start of an inactive
+                      sandbox
+                    code: sandbox_mounts_while_active
+                stopping:
+                  summary: Sandbox is stopping
+                  value:
+                    success: false
+                    error: Sandbox is still stopping; retry once it is stopped
+                    code: sandbox_stopping
+                pausing:
+                  summary: Sandbox is pausing
+                  value:
+                    success: false
+                    error: Sandbox is still pausing; retry once it is paused
+                    code: sandbox_pausing
+                startConflict:
+                  summary: Resume already in progress
+                  value:
+                    success: false
+                    error: >-
+                      Sandbox is already starting with a different lifecycle
+                      intent
+                    code: sandbox_start_conflict
+                terminated:
+                  summary: Sandbox is being deleted
+                  value:
+                    success: false
+                    error: Sandbox is no longer accepting requests
+                    code: sandbox_terminated
         '500':
-          $ref: '#/components/responses/InternalError'
+          $ref: '#/components/responses/SandboxInternalError'
         '503':
-          $ref: '#/components/responses/RetryableUnavailable'
+          $ref: '#/components/responses/SandboxUnavailable'
+        '504':
+          $ref: '#/components/responses/SandboxTimeout'
 components:
   parameters:
     SandboxId:
@@ -172,6 +287,19 @@ components:
         type: boolean
         default: false
   schemas:
+    StartSandboxRequest:
+      type: object
+      properties:
+        mounts:
+          type: array
+          description: >-
+            Replace the sandbox's additional disk mounts for this and later
+            sessions. Omit to keep the current ones; an empty list removes all
+            additional mounts without deleting their disks. The internal root
+            disk is unaffected. Not accepted by resume, and 409 while the
+            sandbox is running or pending.
+          items:
+            $ref: '#/components/schemas/SandboxMount'
     ApiResponse_Sandbox:
       type: object
       required:
@@ -198,6 +326,45 @@ components:
         code:
           type: string
           description: Stable machine-readable error code.
+    SandboxMount:
+      type: object
+      required:
+        - disk_id
+      properties:
+        disk_id:
+          type: string
+          pattern: ^dsk-[0-9a-f]{16}$
+          description: >-
+            Existing disk owned by your account in the sandbox's region. A
+            sandbox's internal root disk cannot be used here.
+        path:
+          type: string
+          description: >-
+            Absolute guest directory to mount at. Required when more than one
+            disk is mounted; a sole mount defaults to /mnt/archil. Paths cannot
+            overlap or contain whitespace, control characters, empty components,
+            . or .. components, or a trailing slash. The root directory and
+            guest system directories (/usr, /etc, /var, /opt, /dev, ...) and
+            their descendants are reserved. A disk can be mounted once per
+            sandbox.
+        subdirectory:
+          type: string
+          description: Relative subdirectory of the disk to expose instead of its root.
+        read_only:
+          type: boolean
+          default: false
+        conditional:
+          type: boolean
+          default: false
+          description: >-
+            Send mutating operations directly to the server without a delegation
+            checkout, allowing concurrent writers.
+        queue_ms:
+          type: integer
+          minimum: 1
+          description: >-
+            Milliseconds to wait for the disk's exclusive root delegation before
+            the mount fails. Not allowed with read_only or conditional.
     Sandbox:
       type: object
       required:
@@ -233,8 +400,8 @@ components:
           description: >-
             Lifetime budget applied independently to each powered-on session.
             Expiry pauses the sandbox, preserving memory and processes for
-            resume. Defaults to 24 hours and can be reset with the timeout
-            endpoint.
+            resume. Defaults to 24 hours. Timeout resets cannot extend a session
+            beyond 24 hours.
         idle_ttl_seconds:
           type: integer
           description: >-
@@ -248,7 +415,12 @@ components:
             processes and one-shot process controls do not count.
         base_image:
           type: string
-          description: OCI reference requested when the sandbox was created.
+          description: >-
+            OCI reference requested when the sandbox was created. Empty for a
+            sandbox created from `image_id`.
+        image_digest:
+          type: string
+          description: Image digest the sandbox was created from, if any.
         platform:
           type: string
           enum:
@@ -266,6 +438,10 @@ components:
           description: >-
             Whether services inside the sandbox can expose ingress. Explicit API
             port exposure remains available regardless of this setting.
+        mounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxMount'
         created_at:
           type: string
           format: date-time
@@ -313,36 +489,76 @@ components:
         hostname:
           type: string
   responses:
-    ValidationError:
-      description: Validation error
+    SandboxValidationError:
+      description: Invalid request body or parameters
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Invalid or missing authentication credentials
+          example:
+            success: false
+            error: Invalid request body
+            code: bad_request
+    PlainTextUnauthorized:
+      description: Missing or invalid authentication credentials
       content:
-        application/json:
+        text/plain:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: Resource not found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    InternalError:
+            type: string
+          examples:
+            missingAuthorization:
+              summary: Missing Authorization header
+              value: Must provide an Authorization header
+            invalidCredentials:
+              summary: Invalid credentials
+              value: Unauthorized
+    SandboxInternalError:
       description: Internal server error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    RetryableUnavailable:
-      description: The lifecycle transition is temporarily blocked and can be retried
+          example:
+            success: false
+            error: Internal error processing sandbox request
+            code: internal_server_error
+    SandboxUnavailable:
+      description: >-
+        Sandbox capacity or runtime temporarily unavailable, or sandboxes are
+        disabled
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            noCapacity:
+              summary: No capacity
+              value:
+                success: false
+                error: No sandbox capacity is available; retry
+                code: no_capacity
+            runtimeRetryable:
+              summary: Retryable runtime failure
+              value:
+                success: false
+                error: Sandbox lifecycle request is temporarily blocked; retry
+                code: runtime_retryable
+            notEnabled:
+              summary: Sandboxes disabled
+              value:
+                success: false
+                error: Sandboxes are not enabled on this controlplane
+                code: not_enabled
+    SandboxTimeout:
+      description: Request timed out; retry
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: Sandbox request timed out; retry
+            code: timeout
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

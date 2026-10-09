@@ -570,6 +570,206 @@
         }
       }
     },
+    "/api/images": {
+      "post": {
+        "operationId": "createImage",
+        "summary": "Build a sandbox image",
+        "description": "Builds an OCI image for use by sandboxes. Poll [Get Image](/api-reference/images/get-image)\nuntil it is `ready`, then pass its `image_id` when creating a sandbox.\n\nRepeated requests join an active build. Completed tags rebuild; completed digest references\nare reused. During a rebuild, sandboxes can use the last successful digest. Submit the request\nagain to retry a failed or unresponsive build.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateImageRequest"
+              },
+              "example": {
+                "source": "ghcr.io/acme/agent-runtime:v2",
+                "registry_auth": {
+                  "username": "YOUR_REGISTRY_USERNAME",
+                  "password": "YOUR_REGISTRY_TOKEN"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The image build is running or finished",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Image"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "image_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                    "source": "ghcr.io/acme/agent-runtime:v2",
+                    "private": true,
+                    "status": "building",
+                    "created_at": "2026-10-06T12:00:00Z",
+                    "updated_at": "2026-10-06T12:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request body, image reference, or registry credentials format",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalidBody": {
+                    "summary": "Invalid JSON request body",
+                    "value": {
+                      "success": false,
+                      "error": "Invalid request body",
+                      "code": "bad_request"
+                    }
+                  },
+                  "incompleteRegistryAuth": {
+                    "summary": "Missing registry username or password",
+                    "value": {
+                      "success": false,
+                      "error": "registry_auth requires a username and password",
+                      "code": "bad_request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/PlainTextUnauthorized"
+          },
+          "500": {
+            "$ref": "#/components/responses/SandboxInternalError"
+          },
+          "503": {
+            "description": "No build capacity is available or sandbox support is disabled in this region",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "noCapacity": {
+                    "summary": "No build capacity available",
+                    "value": {
+                      "success": false,
+                      "error": "No sandbox capacity is available; retry",
+                      "code": "no_capacity"
+                    }
+                  },
+                  "notEnabled": {
+                    "summary": "Sandbox support is disabled",
+                    "value": {
+                      "success": false,
+                      "error": "Sandboxes are not enabled on this controlplane",
+                      "code": "not_enabled"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/SandboxTimeout"
+          }
+        }
+      }
+    },
+    "/api/images/{image_id}": {
+      "get": {
+        "operationId": "getImage",
+        "summary": "Get a sandbox image",
+        "description": "Returns the image's build status and latest successful digest, if available. Failed builds include a `failure_reason`. Use [Build Image](/api-reference/images/build-image) (`POST /api/images`) to retry interrupted builds.",
+        "tags": [
+          "Sandboxes"
+        ],
+        "parameters": [
+          {
+            "name": "image_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The sandbox image",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Image"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "image_id": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                    "source": "ghcr.io/acme/agent-runtime:v2",
+                    "private": true,
+                    "status": "ready",
+                    "digest": "sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                    "canonical_source": "ghcr.io/acme/agent-runtime@sha256:abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
+                    "created_at": "2026-10-06T12:00:00Z",
+                    "updated_at": "2026-10-06T12:01:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/PlainTextUnauthorized"
+          },
+          "404": {
+            "description": "Image not found or private image belongs to another account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": "Sandbox image not found",
+                  "code": "not_found"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/SandboxInternalError"
+          },
+          "503": {
+            "description": "Sandbox support is disabled in this region",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "example": {
+                  "success": false,
+                  "error": "Sandboxes are not enabled on this controlplane",
+                  "code": "not_enabled"
+                }
+              }
+            }
+          },
+          "504": {
+            "$ref": "#/components/responses/SandboxTimeout"
+          }
+        }
+      }
+    },
     "/api/sandboxes": {
       "get": {
         "operationId": "listSandboxes",
@@ -615,7 +815,7 @@
       "post": {
         "operationId": "createSandbox",
         "summary": "Create a sandbox",
-        "description": "Provisions a sandbox VM with the requested shape and a dedicated,\npersistent Archil disk. By default the response reports `pending` after\nthe runtime accepts the start. Set `wait=true` to hold for `running`; if\nthe wait budget expires, the response remains `pending` and startup\ncontinues.\n",
+        "description": "Provisions a sandbox VM with the requested shape and an internal,\npersistent Archil disk backing its root filesystem. This backing disk\ncannot be disabled or replaced with an existing disk. Use `mounts`\nto attach additional existing disks at guest paths; omit it or pass\nan empty list to create a sandbox without additional disks.\nBy default the response reports `pending` after\nthe runtime accepts the start. Set `wait=true` to hold for `running`; if\nthe wait budget expires, the response remains `pending` and startup\ncontinues.\n",
         "tags": [
           "Sandboxes"
         ],
@@ -625,11 +825,23 @@
           }
         ],
         "requestBody": {
-          "required": true,
+          "required": false,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/CreateSandboxRequest"
+              },
+              "example": {
+                "name": "agent-workspace",
+                "base_image": "python:3.13",
+                "vcpu_count": 2,
+                "mem_size_mib": 4096,
+                "mounts": [
+                  {
+                    "disk_id": "dsk-0123456789abcdef",
+                    "path": "/mnt/data"
+                  }
+                ]
               }
             }
           }
@@ -641,38 +853,128 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "sandbox_id": "019d158e-7100-7000-8000-0123456789ab",
+                    "name": "agent-workspace",
+                    "status": "pending",
+                    "vcpu_count": 2,
+                    "mem_size_mib": 4096,
+                    "max_ttl_seconds": 86400,
+                    "idle_ttl_seconds": 0,
+                    "max_concurrent_execs": 32,
+                    "enable_service_ingress": false,
+                    "base_image": "python:3.13",
+                    "mounts": [
+                      {
+                        "disk_id": "dsk-0123456789abcdef",
+                        "path": "/mnt/data"
+                      }
+                    ],
+                    "created_at": "2026-10-06T12:00:00Z",
+                    "last_active_at": "2026-10-06T12:00:00Z"
+                  }
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/ValidationError"
-          },
-          "401": {
-            "$ref": "#/components/responses/Unauthorized"
-          },
-          "409": {
-            "description": "The requested sandbox name already exists in the account",
+            "description": "Invalid request body or parameters",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "invalidBody": {
+                    "summary": "Malformed JSON body",
+                    "value": {
+                      "success": false,
+                      "error": "Invalid request body",
+                      "code": "bad_request"
+                    }
+                  },
+                  "conflictingImages": {
+                    "summary": "Both image selectors supplied",
+                    "value": {
+                      "success": false,
+                      "error": "base_image and image_id are mutually exclusive",
+                      "code": "bad_request"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/PlainTextUnauthorized"
+          },
+          "404": {
+            "description": "Image or mount disk not found or not accessible to this account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "imageNotFound": {
+                    "summary": "Image not found",
+                    "value": {
+                      "success": false,
+                      "error": "Sandbox image not found",
+                      "code": "not_found"
+                    }
+                  },
+                  "diskNotFound": {
+                    "summary": "Mount disk not found or not owned by this account",
+                    "value": {
+                      "success": false,
+                      "error": "mounts[0]: disk dsk-0123456789abcdef not found",
+                      "code": "not_found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Sandbox name already exists, or the selected image has no successful build",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "nameConflict": {
+                    "summary": "Name already in use",
+                    "value": {
+                      "success": false,
+                      "error": "A sandbox with this name already exists",
+                      "code": "sandbox_name_conflict"
+                    }
+                  },
+                  "imageNotReady": {
+                    "summary": "No successful image build",
+                    "value": {
+                      "success": false,
+                      "error": "Sandbox image has no finished build; poll it until it is ready",
+                      "code": "image_not_ready"
+                    }
+                  }
                 }
               }
             }
           },
           "500": {
-            "$ref": "#/components/responses/InternalError"
+            "$ref": "#/components/responses/SandboxInternalError"
           },
           "503": {
-            "description": "No sandbox capacity is available; retry",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "$ref": "#/components/responses/SandboxUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/SandboxTimeout"
           }
         }
       }
@@ -1169,7 +1471,7 @@
       "post": {
         "operationId": "forkSandbox",
         "summary": "Fork a sandbox",
-        "description": "Checkpoints a running source sandbox and creates an isolated writable\ndisk branch. Forks from running or paused sources resume from the\nsource's CPU, memory, and disk state. Forks from stopped sources\ncold-boot from the saved disk checkpoint. A running source is\nresumed after its checkpoint; paused and stopped sources remain\ninactive. Forked sandboxes may themselves be forked.\n\nPassing `checkpoint` forks that saved state without touching the\nsource, so clients can pause once, wait for the checkpoint, and fork\nit from any number of places. Without `checkpoint` the server pauses a\nrunning source inside the request and resumes it afterwards; that path\nis kept for older clients and is bounded by the request timeout.\n",
+        "description": "Checkpoints a running source sandbox and creates an isolated writable\ndisk branch. Forks from running or paused sources resume from the\nsource's CPU, memory, and disk state. Forks from stopped sources\ncold-boot from the saved disk checkpoint. A running source is\nresumed after its checkpoint; paused and stopped sources remain\ninactive. Forked sandboxes may themselves be forked.\n\nPassing `checkpoint` forks that saved state without touching the\nsource, so clients can pause once, wait for the checkpoint, and fork\nit from any number of places. Without `checkpoint` the server pauses a\nrunning source inside the request and resumes it afterwards; that path\nis kept for older clients and is bounded by the request timeout.\nSandboxes with additional disk mounts must be stopped before forking.\nThe fork inherits mounts of the same external disks; only the internal\nroot disk is branched, so external disk contents are not isolated.\n",
         "tags": [
           "Sandboxes"
         ],
@@ -1187,45 +1489,108 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ForkSandboxRequest"
+              },
+              "example": {
+                "name": "agent-fork"
               }
             }
           }
         },
         "responses": {
           "202": {
-            "description": "The fork was created and its start is pending",
+            "description": "The fork was created; status is pending or running when wait=true completes startup",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "sandbox_id": "019d158f-5b60-7000-8000-0123456789ab",
+                    "name": "agent-fork",
+                    "status": "pending",
+                    "vcpu_count": 2,
+                    "mem_size_mib": 4096,
+                    "max_ttl_seconds": 86400,
+                    "idle_ttl_seconds": 0,
+                    "max_concurrent_execs": 32,
+                    "enable_service_ingress": false,
+                    "base_image": "python:3.13",
+                    "mounts": [
+                      {
+                        "disk_id": "dsk-0123456789abcdef",
+                        "path": "/mnt/data"
+                      }
+                    ],
+                    "created_at": "2026-10-06T12:00:00Z",
+                    "last_active_at": "2026-10-06T12:00:00Z"
+                  }
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/ValidationError"
+            "$ref": "#/components/responses/SandboxValidationError"
           },
           "401": {
-            "$ref": "#/components/responses/Unauthorized"
+            "$ref": "#/components/responses/PlainTextUnauthorized"
           },
           "404": {
-            "$ref": "#/components/responses/NotFound"
+            "$ref": "#/components/responses/SandboxNotFound"
           },
           "409": {
-            "description": "The source cannot be paused or its fork checkpoint is unavailable",
+            "description": "Source state or mounted disks prevent the fork, the checkpoint is unavailable, or the name is already in use",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "mountedSource": {
+                    "summary": "Stop the source before forking mounted disks",
+                    "value": {
+                      "success": false,
+                      "error": "sandbox has mounted disks: disk dsk-0123456789abcdef is mounted at /mnt/data; stop the sandbox before forking it",
+                      "code": "sandbox_fork_mounted"
+                    }
+                  },
+                  "checkpointUnavailable": {
+                    "summary": "Checkpoint unavailable",
+                    "value": {
+                      "success": false,
+                      "error": "The sandbox fork checkpoint is unavailable",
+                      "code": "sandbox_fork_checkpoint"
+                    }
+                  },
+                  "notForkable": {
+                    "summary": "Source cannot be forked",
+                    "value": {
+                      "success": false,
+                      "error": "Only a running, paused, or stopped sandbox can be forked",
+                      "code": "sandbox_not_forkable"
+                    }
+                  },
+                  "nameConflict": {
+                    "summary": "Name already in use",
+                    "value": {
+                      "success": false,
+                      "error": "A sandbox with this name already exists",
+                      "code": "sandbox_name_conflict"
+                    }
+                  }
                 }
               }
             }
           },
           "500": {
-            "$ref": "#/components/responses/InternalError"
+            "$ref": "#/components/responses/SandboxInternalError"
           },
           "503": {
-            "$ref": "#/components/responses/RetryableUnavailable"
+            "$ref": "#/components/responses/SandboxUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/SandboxTimeout"
           }
         }
       }
@@ -1408,7 +1773,7 @@
       "post": {
         "operationId": "setSandboxTimeout",
         "summary": "Set a sandbox's timeouts",
-        "description": "Replaces one or both sandbox timeout settings. Updating `timeout` while\nthe sandbox is running resets its hard expiration deadline to that many\nseconds from now. Updating `idle_ttl_seconds` resets the idle\ncountdown when no direct process connection is active; zero disables\nidle expiry. Omitted settings remain unchanged. Updates are retained\nacross later stops and starts. For an inactive sandbox, they apply to\nthe next powered-on session. Sandboxes that are starting or shutting\ndown, or whose timeout changes concurrently, return 409.\n",
+        "description": "Replaces one or both sandbox timeout settings. Updating `timeout` while\nthe sandbox is running resets its hard expiration deadline to that many\nseconds from now, capped at 24 hours after the current session started.\nUpdating `idle_ttl_seconds` resets the idle\ncountdown when no direct process connection is active; zero disables\nidle expiry. Omitted settings remain unchanged. Updates are retained\nacross later stops and starts. For an inactive sandbox, they apply to\nthe next powered-on session. Sandboxes that are starting or shutting\ndown, or whose timeout changes concurrently, return 409.\n",
         "tags": [
           "Sandboxes"
         ],
@@ -1470,7 +1835,7 @@
       "post": {
         "operationId": "startSandbox",
         "summary": "Cold-start a sandbox",
-        "description": "Cold-boots from the persisted configuration and disks. If the sandbox\nwas paused, its memory snapshot is consumed and discarded before the\nnew VM runs; disk state remains. Starting a running sandbox or a pending\ncold start is idempotent. A sandbox that is stopping, pausing, or\npending a resume returns 409.\n",
+        "description": "Cold-boots from the persisted configuration and disks. If the sandbox\nwas paused, its memory snapshot is consumed and discarded before the\nnew VM runs; disk state remains. Without mount changes, starting a running\nsandbox or a pending cold start is idempotent. A sandbox that is stopping,\npausing, or pending a resume returns 409. Providing `mounts` replaces the\nadditional disk mounts for this and later sessions and requires an inactive\nsandbox; omit it to preserve saved mounts.\n",
         "tags": [
           "Sandboxes"
         ],
@@ -1482,13 +1847,55 @@
             "$ref": "#/components/parameters/Wait"
           }
         ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartSandboxRequest"
+              },
+              "example": {
+                "mounts": [
+                  {
+                    "disk_id": "dsk-0123456789abcdef",
+                    "path": "/mnt/data"
+                  }
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "The sandbox was already running",
+            "description": "The sandbox is running",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "sandbox_id": "019d158e-7100-7000-8000-0123456789ab",
+                    "name": "agent-workspace",
+                    "status": "running",
+                    "vcpu_count": 2,
+                    "mem_size_mib": 4096,
+                    "max_ttl_seconds": 86400,
+                    "idle_ttl_seconds": 0,
+                    "max_concurrent_execs": 32,
+                    "enable_service_ingress": false,
+                    "base_image": "python:3.13",
+                    "mounts": [
+                      {
+                        "disk_id": "dsk-0123456789abcdef",
+                        "path": "/mnt/data"
+                      }
+                    ],
+                    "created_at": "2026-10-06T12:00:00Z",
+                    "last_active_at": "2026-10-06T12:00:05Z",
+                    "running_at": "2026-10-06T12:00:05Z"
+                  }
                 }
               }
             }
@@ -1499,34 +1906,127 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiResponse_Sandbox"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "sandbox_id": "019d158e-7100-7000-8000-0123456789ab",
+                    "name": "agent-workspace",
+                    "status": "pending",
+                    "vcpu_count": 2,
+                    "mem_size_mib": 4096,
+                    "max_ttl_seconds": 86400,
+                    "idle_ttl_seconds": 0,
+                    "max_concurrent_execs": 32,
+                    "enable_service_ingress": false,
+                    "base_image": "python:3.13",
+                    "mounts": [
+                      {
+                        "disk_id": "dsk-0123456789abcdef",
+                        "path": "/mnt/data"
+                      }
+                    ],
+                    "created_at": "2026-10-06T12:00:00Z",
+                    "last_active_at": "2026-10-06T12:00:00Z"
+                  }
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/ValidationError"
+            "$ref": "#/components/responses/SandboxValidationError"
           },
           "401": {
-            "$ref": "#/components/responses/Unauthorized"
+            "$ref": "#/components/responses/PlainTextUnauthorized"
           },
           "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "409": {
-            "description": "The previous VM is stopping or pausing, or a resume is already in progress",
+            "description": "Sandbox or mount disk not found or not accessible to this account",
             "content": {
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "sandboxNotFound": {
+                    "summary": "Sandbox not found",
+                    "value": {
+                      "success": false,
+                      "error": "Sandbox not found",
+                      "code": "not_found"
+                    }
+                  },
+                  "diskNotFound": {
+                    "summary": "Mount disk not found or not owned by this account",
+                    "value": {
+                      "success": false,
+                      "error": "mounts[0]: disk dsk-0123456789abcdef not found",
+                      "code": "not_found"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Sandbox is stopping, pausing, being deleted, or resuming; mount changes also conflict with a running or pending session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                },
+                "examples": {
+                  "mountsWhileActive": {
+                    "summary": "Mount changes require an inactive sandbox",
+                    "value": {
+                      "success": false,
+                      "error": "mounts can only change on a cold start of an inactive sandbox",
+                      "code": "sandbox_mounts_while_active"
+                    }
+                  },
+                  "stopping": {
+                    "summary": "Sandbox is stopping",
+                    "value": {
+                      "success": false,
+                      "error": "Sandbox is still stopping; retry once it is stopped",
+                      "code": "sandbox_stopping"
+                    }
+                  },
+                  "pausing": {
+                    "summary": "Sandbox is pausing",
+                    "value": {
+                      "success": false,
+                      "error": "Sandbox is still pausing; retry once it is paused",
+                      "code": "sandbox_pausing"
+                    }
+                  },
+                  "startConflict": {
+                    "summary": "Resume already in progress",
+                    "value": {
+                      "success": false,
+                      "error": "Sandbox is already starting with a different lifecycle intent",
+                      "code": "sandbox_start_conflict"
+                    }
+                  },
+                  "terminated": {
+                    "summary": "Sandbox is being deleted",
+                    "value": {
+                      "success": false,
+                      "error": "Sandbox is no longer accepting requests",
+                      "code": "sandbox_terminated"
+                    }
+                  }
                 }
               }
             }
           },
           "500": {
-            "$ref": "#/components/responses/InternalError"
+            "$ref": "#/components/responses/SandboxInternalError"
           },
           "503": {
-            "$ref": "#/components/responses/RetryableUnavailable"
+            "$ref": "#/components/responses/SandboxUnavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/SandboxTimeout"
           }
         }
       }
@@ -1774,6 +2274,122 @@
       }
     },
     "responses": {
+      "SandboxValidationError": {
+        "description": "Invalid request body or parameters",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": "Invalid request body",
+              "code": "bad_request"
+            }
+          }
+        }
+      },
+      "SandboxNotFound": {
+        "description": "Sandbox not found",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": "Sandbox not found",
+              "code": "not_found"
+            }
+          }
+        }
+      },
+      "SandboxUnavailable": {
+        "description": "Sandbox capacity or runtime temporarily unavailable, or sandboxes are disabled",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "examples": {
+              "noCapacity": {
+                "summary": "No capacity",
+                "value": {
+                  "success": false,
+                  "error": "No sandbox capacity is available; retry",
+                  "code": "no_capacity"
+                }
+              },
+              "runtimeRetryable": {
+                "summary": "Retryable runtime failure",
+                "value": {
+                  "success": false,
+                  "error": "Sandbox lifecycle request is temporarily blocked; retry",
+                  "code": "runtime_retryable"
+                }
+              },
+              "notEnabled": {
+                "summary": "Sandboxes disabled",
+                "value": {
+                  "success": false,
+                  "error": "Sandboxes are not enabled on this controlplane",
+                  "code": "not_enabled"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PlainTextUnauthorized": {
+        "description": "Missing or invalid authentication credentials",
+        "content": {
+          "text/plain": {
+            "schema": {
+              "type": "string"
+            },
+            "examples": {
+              "missingAuthorization": {
+                "summary": "Missing Authorization header",
+                "value": "Must provide an Authorization header"
+              },
+              "invalidCredentials": {
+                "summary": "Invalid credentials",
+                "value": "Unauthorized"
+              }
+            }
+          }
+        }
+      },
+      "SandboxInternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": "Internal error processing sandbox request",
+              "code": "internal_server_error"
+            }
+          }
+        }
+      },
+      "SandboxTimeout": {
+        "description": "Request timed out; retry",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            },
+            "example": {
+              "success": false,
+              "error": "Sandbox request timed out; retry",
+              "code": "timeout"
+            }
+          }
+        }
+      },
       "Unauthorized": {
         "description": "Invalid or missing authentication credentials",
         "content": {
@@ -1961,7 +2577,7 @@
           "forward_url": {
             "type": "string",
             "format": "uri",
-            "description": "Absolute public HTTPS URL that receives this rule's permitted HTTP and HTTPS requests instead of their original upstream. The original path is appended to this URL, and Archil overwrites the archil-forwarded-host, archil-forwarded-scheme, archil-forwarded-port, archil-forwarded-path, and archil-sandbox-id headers with request metadata. A transform on the same rule is applied before forwarding, so the forwarded request carries the transformed headers. URLs containing credentials, a query, or a fragment are rejected."
+            "description": "Absolute public HTTPS URL that receives this rule's permitted HTTP and HTTPS requests instead of their original upstream. Requires a lowercase domain; IP addresses, credentials, queries, and fragments are rejected. Protected and private destination addresses are blocked. The original path and query are appended to this URL's path prefix. Archil overwrites the archil-forwarded-host, archil-forwarded-scheme, archil-forwarded-port, archil-forwarded-path, and archil-sandbox-id headers with request metadata. A transform on the same rule is applied before forwarding."
           }
         }
       },
@@ -1997,7 +2613,7 @@
             "type": "integer",
             "minimum": 60,
             "maximum": 86400,
-            "description": "Seconds from now until a running sandbox expires, and the lifetime budget for its next powered-on session."
+            "description": "Seconds from now until a running sandbox pauses, capped at 24 hours after its current session started. Also sets the lifetime budget for its next powered-on session."
           },
           "idle_ttl_seconds": {
             "type": "integer",
@@ -2045,7 +2661,7 @@
           },
           "max_ttl_seconds": {
             "type": "integer",
-            "description": "Lifetime budget applied independently to each powered-on session. Expiry pauses the sandbox, preserving memory and processes for resume. Defaults to 24 hours and can be reset with the timeout endpoint."
+            "description": "Lifetime budget applied independently to each powered-on session. Expiry pauses the sandbox, preserving memory and processes for resume. Defaults to 24 hours. Timeout resets cannot extend a session beyond 24 hours."
           },
           "idle_ttl_seconds": {
             "type": "integer",
@@ -2057,7 +2673,11 @@
           },
           "base_image": {
             "type": "string",
-            "description": "OCI reference requested when the sandbox was created."
+            "description": "OCI reference requested when the sandbox was created. Empty for a sandbox created from `image_id`."
+          },
+          "image_digest": {
+            "type": "string",
+            "description": "Image digest the sandbox was created from, if any."
           },
           "platform": {
             "type": "string",
@@ -2078,6 +2698,12 @@
             "type": "boolean",
             "default": false,
             "description": "Whether services inside the sandbox can expose ingress. Explicit API port exposure remains available regardless of this setting."
+          },
+          "mounts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SandboxMount"
+            }
           },
           "created_at": {
             "type": "string",
@@ -2386,6 +3012,166 @@
           }
         }
       },
+      "SandboxMount": {
+        "type": "object",
+        "required": [
+          "disk_id"
+        ],
+        "properties": {
+          "disk_id": {
+            "type": "string",
+            "pattern": "^dsk-[0-9a-f]{16}$",
+            "description": "Existing disk owned by your account in the sandbox's region. A sandbox's internal root disk cannot be used here."
+          },
+          "path": {
+            "type": "string",
+            "description": "Absolute guest directory to mount at. Required when more than one disk is mounted; a sole mount defaults to /mnt/archil. Paths cannot overlap or contain whitespace, control characters, empty components, . or .. components, or a trailing slash. The root directory and guest system directories (/usr, /etc, /var, /opt, /dev, ...) and their descendants are reserved. A disk can be mounted once per sandbox."
+          },
+          "subdirectory": {
+            "type": "string",
+            "description": "Relative subdirectory of the disk to expose instead of its root."
+          },
+          "read_only": {
+            "type": "boolean",
+            "default": false
+          },
+          "conditional": {
+            "type": "boolean",
+            "default": false,
+            "description": "Send mutating operations directly to the server without a delegation checkout, allowing concurrent writers."
+          },
+          "queue_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Milliseconds to wait for the disk's exclusive root delegation before the mount fails. Not allowed with read_only or conditional."
+          }
+        }
+      },
+      "StartSandboxRequest": {
+        "type": "object",
+        "properties": {
+          "mounts": {
+            "type": "array",
+            "description": "Replace the sandbox's additional disk mounts for this and later sessions. Omit to keep the current ones; an empty list removes all additional mounts without deleting their disks. The internal root disk is unaffected. Not accepted by resume, and 409 while the sandbox is running or pending.",
+            "items": {
+              "$ref": "#/components/schemas/SandboxMount"
+            }
+          }
+        }
+      },
+      "RegistryAuth": {
+        "type": "object",
+        "description": "Registry credentials required for private images. Supply them on every build request; Archil does not store them. Omit for public images.",
+        "required": [
+          "username",
+          "password"
+        ],
+        "properties": {
+          "username": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Registry username."
+          },
+          "password": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Password or access token with pull access to the image."
+          }
+        }
+      },
+      "CreateImageRequest": {
+        "type": "object",
+        "required": [
+          "source"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "description": "Linux OCI image reference. Docker shorthand and tags are accepted."
+          },
+          "registry_auth": {
+            "$ref": "#/components/schemas/RegistryAuth"
+          }
+        }
+      },
+      "ImageState": {
+        "type": "string",
+        "enum": [
+          "building",
+          "ready",
+          "failed"
+        ]
+      },
+      "Image": {
+        "type": "object",
+        "required": [
+          "image_id",
+          "source",
+          "private",
+          "status",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "image_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "Stable ID for the normalized source and its public or private scope. Private image IDs are scoped to your account. Adding or removing registry credentials changes the scope and the ID; rebuilding in the same scope keeps the ID."
+          },
+          "source": {
+            "type": "string",
+            "description": "Normalized OCI reference the image is pulled from."
+          },
+          "private": {
+            "type": "boolean",
+            "description": "Whether the image is pulled with registry credentials."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ImageState"
+          },
+          "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$",
+            "description": "The most recent successful build. Sandboxes created from this `image_id` boot it, and keep it after the image is rebuilt."
+          },
+          "canonical_source": {
+            "type": "string",
+            "description": "The pulled manifest, as `repository@sha256:...`."
+          },
+          "failure_reason": {
+            "type": "string",
+            "enum": [
+              "invalid_source",
+              "interrupted"
+            ],
+            "description": "Set when `failed`. `invalid_source`: the registry reported the image missing or denied access, so requesting it again will not help. `interrupted`: the build did not finish; request the image again."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "ApiResponse_Image": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/Image"
+          }
+        }
+      },
       "CreateSandboxRequest": {
         "type": "object",
         "properties": {
@@ -2410,8 +3196,12 @@
           },
           "base_image": {
             "type": "string",
-            "default": "ubuntu:26.04",
-            "description": "Public Linux OCI image reference. Docker shorthand and tags are accepted; the selected platform manifest is pinned at creation."
+            "description": "Public Linux OCI image reference. Docker shorthand and tags are accepted; the selected platform manifest is pinned at creation. Defaults to `ubuntu:26.04` when neither this nor `image_id` is set. Mutually exclusive with `image_id`."
+          },
+          "image_id": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "ID from [Build Image](/api-reference/images/build-image), for a public or private image. For private images, build with `registry_auth` first, then pass the returned ID here. The sandbox boots the image's current `digest`. Mutually exclusive with `base_image`."
           },
           "ports": {
             "type": "array",
@@ -2437,12 +3227,19 @@
           "network": {
             "$ref": "#/components/schemas/SandboxNetwork"
           },
+          "mounts": {
+            "type": "array",
+            "description": "Archil disks mounted inside the guest for the first session; `start` can replace them for later sessions. Inherited by forks. A sandbox with mounts must be stopped before it can be forked.",
+            "items": {
+              "$ref": "#/components/schemas/SandboxMount"
+            }
+          },
           "max_ttl_seconds": {
             "type": "integer",
             "minimum": 60,
             "maximum": 86400,
             "default": 86400,
-            "description": "Lifetime budget applied independently to each powered-on session. Expiry pauses the sandbox, preserving memory and processes for resume."
+            "description": "Lifetime budget applied independently to each powered-on session. Expiry pauses the sandbox, preserving memory and processes for resume. Timeout resets cannot extend a session beyond 24 hours."
           },
           "idle_ttl_seconds": {
             "type": "integer",
@@ -2452,6 +3249,9 @@
           },
           "max_concurrent_execs": {
             "type": "integer",
+            "minimum": 1,
+            "maximum": 256,
+            "default": 32,
             "description": "Maximum number of concurrently attached process sessions. Detached processes and one-shot process controls do not count."
           }
         }

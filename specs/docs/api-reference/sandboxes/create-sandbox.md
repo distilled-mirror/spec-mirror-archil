@@ -4,8 +4,12 @@
 
 # Create Sandbox
 
-> Provisions a sandbox VM with the requested shape and a dedicated,
-persistent Archil disk. By default the response reports `pending` after
+> Provisions a sandbox VM with the requested shape and an internal,
+persistent Archil disk backing its root filesystem. This backing disk
+cannot be disabled or replaced with an existing disk. Use `mounts`
+to attach additional existing disks at guest paths; omit it or pass
+an empty list to create a sandbox without additional disks.
+By default the response reports `pending` after
 the runtime accepts the start. Set `wait=true` to hold for `running`; if
 the wait budget expires, the response remains `pending` and startup
 continues.
@@ -113,8 +117,12 @@ paths:
         - Sandboxes
       summary: Create a sandbox
       description: |
-        Provisions a sandbox VM with the requested shape and a dedicated,
-        persistent Archil disk. By default the response reports `pending` after
+        Provisions a sandbox VM with the requested shape and an internal,
+        persistent Archil disk backing its root filesystem. This backing disk
+        cannot be disabled or replaced with an existing disk. Use `mounts`
+        to attach additional existing disks at guest paths; omit it or pass
+        an empty list to create a sandbox without additional disks.
+        By default the response reports `pending` after
         the runtime accepts the start. Set `wait=true` to hold for `running`; if
         the wait budget expires, the response remains `pending` and startup
         continues.
@@ -122,11 +130,19 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Wait'
       requestBody:
-        required: true
+        required: false
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateSandboxRequest'
+            example:
+              name: agent-workspace
+              base_image: python:3.13
+              vcpu_count: 2
+              mem_size_mib: 4096
+              mounts:
+                - disk_id: dsk-0123456789abcdef
+                  path: /mnt/data
       responses:
         '202':
           description: The sandbox was created
@@ -134,24 +150,93 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse_Sandbox'
+              example:
+                success: true
+                data:
+                  sandbox_id: 019d158e-7100-7000-8000-0123456789ab
+                  name: agent-workspace
+                  status: pending
+                  vcpu_count: 2
+                  mem_size_mib: 4096
+                  max_ttl_seconds: 86400
+                  idle_ttl_seconds: 0
+                  max_concurrent_execs: 32
+                  enable_service_ingress: false
+                  base_image: python:3.13
+                  mounts:
+                    - disk_id: dsk-0123456789abcdef
+                      path: /mnt/data
+                  created_at: '2026-10-06T12:00:00Z'
+                  last_active_at: '2026-10-06T12:00:00Z'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          description: Invalid request body or parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidBody:
+                  summary: Malformed JSON body
+                  value:
+                    success: false
+                    error: Invalid request body
+                    code: bad_request
+                conflictingImages:
+                  summary: Both image selectors supplied
+                  value:
+                    success: false
+                    error: base_image and image_id are mutually exclusive
+                    code: bad_request
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/PlainTextUnauthorized'
+        '404':
+          description: Image or mount disk not found or not accessible to this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                imageNotFound:
+                  summary: Image not found
+                  value:
+                    success: false
+                    error: Sandbox image not found
+                    code: not_found
+                diskNotFound:
+                  summary: Mount disk not found or not owned by this account
+                  value:
+                    success: false
+                    error: 'mounts[0]: disk dsk-0123456789abcdef not found'
+                    code: not_found
         '409':
-          description: The requested sandbox name already exists in the account
+          description: >-
+            Sandbox name already exists, or the selected image has no successful
+            build
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                nameConflict:
+                  summary: Name already in use
+                  value:
+                    success: false
+                    error: A sandbox with this name already exists
+                    code: sandbox_name_conflict
+                imageNotReady:
+                  summary: No successful image build
+                  value:
+                    success: false
+                    error: >-
+                      Sandbox image has no finished build; poll it until it is
+                      ready
+                    code: image_not_ready
         '500':
-          $ref: '#/components/responses/InternalError'
+          $ref: '#/components/responses/SandboxInternalError'
         '503':
-          description: No sandbox capacity is available; retry
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/SandboxUnavailable'
+        '504':
+          $ref: '#/components/responses/SandboxTimeout'
 components:
   parameters:
     Wait:
@@ -186,10 +271,20 @@ components:
           default: 2048
         base_image:
           type: string
-          default: ubuntu:26.04
           description: >-
             Public Linux OCI image reference. Docker shorthand and tags are
             accepted; the selected platform manifest is pinned at creation.
+            Defaults to `ubuntu:26.04` when neither this nor `image_id` is set.
+            Mutually exclusive with `image_id`.
+        image_id:
+          type: string
+          pattern: ^[0-9a-f]{64}$
+          description: >-
+            ID from [Build Image](/api-reference/images/build-image), for a
+            public or private image. For private images, build with
+            `registry_auth` first, then pass the returned ID here. The sandbox
+            boots the image's current `digest`. Mutually exclusive with
+            `base_image`.
         ports:
           type: array
           description: TCP ports to expose publicly when the sandbox is created.
@@ -211,6 +306,14 @@ components:
           description: Environment variables applied to every process
         network:
           $ref: '#/components/schemas/SandboxNetwork'
+        mounts:
+          type: array
+          description: >-
+            Archil disks mounted inside the guest for the first session; `start`
+            can replace them for later sessions. Inherited by forks. A sandbox
+            with mounts must be stopped before it can be forked.
+          items:
+            $ref: '#/components/schemas/SandboxMount'
         max_ttl_seconds:
           type: integer
           minimum: 60
@@ -219,7 +322,7 @@ components:
           description: >-
             Lifetime budget applied independently to each powered-on session.
             Expiry pauses the sandbox, preserving memory and processes for
-            resume.
+            resume. Timeout resets cannot extend a session beyond 24 hours.
         idle_ttl_seconds:
           type: integer
           minimum: 0
@@ -230,6 +333,9 @@ components:
             disable idle expiry.
         max_concurrent_execs:
           type: integer
+          minimum: 1
+          maximum: 256
+          default: 32
           description: >-
             Maximum number of concurrently attached process sessions. Detached
             processes and one-shot process controls do not count.
@@ -268,6 +374,45 @@ components:
       properties:
         egress:
           $ref: '#/components/schemas/SandboxEgressPolicy'
+    SandboxMount:
+      type: object
+      required:
+        - disk_id
+      properties:
+        disk_id:
+          type: string
+          pattern: ^dsk-[0-9a-f]{16}$
+          description: >-
+            Existing disk owned by your account in the sandbox's region. A
+            sandbox's internal root disk cannot be used here.
+        path:
+          type: string
+          description: >-
+            Absolute guest directory to mount at. Required when more than one
+            disk is mounted; a sole mount defaults to /mnt/archil. Paths cannot
+            overlap or contain whitespace, control characters, empty components,
+            . or .. components, or a trailing slash. The root directory and
+            guest system directories (/usr, /etc, /var, /opt, /dev, ...) and
+            their descendants are reserved. A disk can be mounted once per
+            sandbox.
+        subdirectory:
+          type: string
+          description: Relative subdirectory of the disk to expose instead of its root.
+        read_only:
+          type: boolean
+          default: false
+        conditional:
+          type: boolean
+          default: false
+          description: >-
+            Send mutating operations directly to the server without a delegation
+            checkout, allowing concurrent writers.
+        queue_ms:
+          type: integer
+          minimum: 1
+          description: >-
+            Milliseconds to wait for the disk's exclusive root delegation before
+            the mount fails. Not allowed with read_only or conditional.
     Sandbox:
       type: object
       required:
@@ -303,8 +448,8 @@ components:
           description: >-
             Lifetime budget applied independently to each powered-on session.
             Expiry pauses the sandbox, preserving memory and processes for
-            resume. Defaults to 24 hours and can be reset with the timeout
-            endpoint.
+            resume. Defaults to 24 hours. Timeout resets cannot extend a session
+            beyond 24 hours.
         idle_ttl_seconds:
           type: integer
           description: >-
@@ -318,7 +463,12 @@ components:
             processes and one-shot process controls do not count.
         base_image:
           type: string
-          description: OCI reference requested when the sandbox was created.
+          description: >-
+            OCI reference requested when the sandbox was created. Empty for a
+            sandbox created from `image_id`.
+        image_digest:
+          type: string
+          description: Image digest the sandbox was created from, if any.
         platform:
           type: string
           enum:
@@ -336,6 +486,10 @@ components:
           description: >-
             Whether services inside the sandbox can expose ingress. Explicit API
             port exposure remains available regardless of this setting.
+        mounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxMount'
         created_at:
           type: string
           format: date-time
@@ -460,14 +614,14 @@ components:
           format: uri
           description: >-
             Absolute public HTTPS URL that receives this rule's permitted HTTP
-            and HTTPS requests instead of their original upstream. The original
-            path is appended to this URL, and Archil overwrites the
-            archil-forwarded-host, archil-forwarded-scheme,
-            archil-forwarded-port, archil-forwarded-path, and archil-sandbox-id
-            headers with request metadata. A transform on the same rule is
-            applied before forwarding, so the forwarded request carries the
-            transformed headers. URLs containing credentials, a query, or a
-            fragment are rejected.
+            and HTTPS requests instead of their original upstream. Requires a
+            lowercase domain; IP addresses, credentials, queries, and fragments
+            are rejected. Protected and private destination addresses are
+            blocked. The original path and query are appended to this URL's path
+            prefix. Archil overwrites the archil-forwarded-host,
+            archil-forwarded-scheme, archil-forwarded-port,
+            archil-forwarded-path, and archil-sandbox-id headers with request
+            metadata. A transform on the same rule is applied before forwarding.
     SandboxEgressTransform:
       type: object
       description: >-
@@ -484,24 +638,66 @@ components:
             Outbound HTTPS request headers to set, overwriting values supplied
             by the sandbox.
   responses:
-    ValidationError:
-      description: Validation error
+    PlainTextUnauthorized:
+      description: Missing or invalid authentication credentials
       content:
-        application/json:
+        text/plain:
           schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Invalid or missing authentication credentials
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    InternalError:
+            type: string
+          examples:
+            missingAuthorization:
+              summary: Missing Authorization header
+              value: Must provide an Authorization header
+            invalidCredentials:
+              summary: Invalid credentials
+              value: Unauthorized
+    SandboxInternalError:
       description: Internal server error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: Internal error processing sandbox request
+            code: internal_server_error
+    SandboxUnavailable:
+      description: >-
+        Sandbox capacity or runtime temporarily unavailable, or sandboxes are
+        disabled
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            noCapacity:
+              summary: No capacity
+              value:
+                success: false
+                error: No sandbox capacity is available; retry
+                code: no_capacity
+            runtimeRetryable:
+              summary: Retryable runtime failure
+              value:
+                success: false
+                error: Sandbox lifecycle request is temporarily blocked; retry
+                code: runtime_retryable
+            notEnabled:
+              summary: Sandboxes disabled
+              value:
+                success: false
+                error: Sandboxes are not enabled on this controlplane
+                code: not_enabled
+    SandboxTimeout:
+      description: Request timed out; retry
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: Sandbox request timed out; retry
+            code: timeout
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

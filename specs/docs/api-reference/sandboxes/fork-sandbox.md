@@ -16,6 +16,9 @@ source, so clients can pause once, wait for the checkpoint, and fork
 it from any number of places. Without `checkpoint` the server pauses a
 running source inside the request and resumes it afterwards; that path
 is kept for older clients and is bounded by the request timeout.
+Sandboxes with additional disk mounts must be stopped before forking.
+The fork inherits mounts of the same external disks; only the internal
+root disk is branched, so external disk contents are not isolated.
 
 
 
@@ -132,6 +135,9 @@ paths:
         it from any number of places. Without `checkpoint` the server pauses a
         running source inside the request and resumes it afterwards; that path
         is kept for older clients and is bounded by the request timeout.
+        Sandboxes with additional disk mounts must be stopped before forking.
+        The fork inherits mounts of the same external disks; only the internal
+        root disk is branched, so external disk contents are not isolated.
       operationId: forkSandbox
       parameters:
         - $ref: '#/components/parameters/SandboxId'
@@ -142,29 +148,82 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ForkSandboxRequest'
+            example:
+              name: agent-fork
       responses:
         '202':
-          description: The fork was created and its start is pending
+          description: >-
+            The fork was created; status is pending or running when wait=true
+            completes startup
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiResponse_Sandbox'
+              example:
+                success: true
+                data:
+                  sandbox_id: 019d158f-5b60-7000-8000-0123456789ab
+                  name: agent-fork
+                  status: pending
+                  vcpu_count: 2
+                  mem_size_mib: 4096
+                  max_ttl_seconds: 86400
+                  idle_ttl_seconds: 0
+                  max_concurrent_execs: 32
+                  enable_service_ingress: false
+                  base_image: python:3.13
+                  mounts:
+                    - disk_id: dsk-0123456789abcdef
+                      path: /mnt/data
+                  created_at: '2026-10-06T12:00:00Z'
+                  last_active_at: '2026-10-06T12:00:00Z'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          $ref: '#/components/responses/SandboxValidationError'
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          $ref: '#/components/responses/PlainTextUnauthorized'
         '404':
-          $ref: '#/components/responses/NotFound'
+          $ref: '#/components/responses/SandboxNotFound'
         '409':
-          description: The source cannot be paused or its fork checkpoint is unavailable
+          description: >-
+            Source state or mounted disks prevent the fork, the checkpoint is
+            unavailable, or the name is already in use
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                mountedSource:
+                  summary: Stop the source before forking mounted disks
+                  value:
+                    success: false
+                    error: >-
+                      sandbox has mounted disks: disk dsk-0123456789abcdef is
+                      mounted at /mnt/data; stop the sandbox before forking it
+                    code: sandbox_fork_mounted
+                checkpointUnavailable:
+                  summary: Checkpoint unavailable
+                  value:
+                    success: false
+                    error: The sandbox fork checkpoint is unavailable
+                    code: sandbox_fork_checkpoint
+                notForkable:
+                  summary: Source cannot be forked
+                  value:
+                    success: false
+                    error: Only a running, paused, or stopped sandbox can be forked
+                    code: sandbox_not_forkable
+                nameConflict:
+                  summary: Name already in use
+                  value:
+                    success: false
+                    error: A sandbox with this name already exists
+                    code: sandbox_name_conflict
         '500':
-          $ref: '#/components/responses/InternalError'
+          $ref: '#/components/responses/SandboxInternalError'
         '503':
-          $ref: '#/components/responses/RetryableUnavailable'
+          $ref: '#/components/responses/SandboxUnavailable'
+        '504':
+          $ref: '#/components/responses/SandboxTimeout'
 components:
   parameters:
     SandboxId:
@@ -264,8 +323,8 @@ components:
           description: >-
             Lifetime budget applied independently to each powered-on session.
             Expiry pauses the sandbox, preserving memory and processes for
-            resume. Defaults to 24 hours and can be reset with the timeout
-            endpoint.
+            resume. Defaults to 24 hours. Timeout resets cannot extend a session
+            beyond 24 hours.
         idle_ttl_seconds:
           type: integer
           description: >-
@@ -279,7 +338,12 @@ components:
             processes and one-shot process controls do not count.
         base_image:
           type: string
-          description: OCI reference requested when the sandbox was created.
+          description: >-
+            OCI reference requested when the sandbox was created. Empty for a
+            sandbox created from `image_id`.
+        image_digest:
+          type: string
+          description: Image digest the sandbox was created from, if any.
         platform:
           type: string
           enum:
@@ -297,6 +361,10 @@ components:
           description: >-
             Whether services inside the sandbox can expose ingress. Explicit API
             port exposure remains available regardless of this setting.
+        mounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxMount'
         created_at:
           type: string
           format: date-time
@@ -343,37 +411,126 @@ components:
           maximum: 65535
         hostname:
           type: string
+    SandboxMount:
+      type: object
+      required:
+        - disk_id
+      properties:
+        disk_id:
+          type: string
+          pattern: ^dsk-[0-9a-f]{16}$
+          description: >-
+            Existing disk owned by your account in the sandbox's region. A
+            sandbox's internal root disk cannot be used here.
+        path:
+          type: string
+          description: >-
+            Absolute guest directory to mount at. Required when more than one
+            disk is mounted; a sole mount defaults to /mnt/archil. Paths cannot
+            overlap or contain whitespace, control characters, empty components,
+            . or .. components, or a trailing slash. The root directory and
+            guest system directories (/usr, /etc, /var, /opt, /dev, ...) and
+            their descendants are reserved. A disk can be mounted once per
+            sandbox.
+        subdirectory:
+          type: string
+          description: Relative subdirectory of the disk to expose instead of its root.
+        read_only:
+          type: boolean
+          default: false
+        conditional:
+          type: boolean
+          default: false
+          description: >-
+            Send mutating operations directly to the server without a delegation
+            checkout, allowing concurrent writers.
+        queue_ms:
+          type: integer
+          minimum: 1
+          description: >-
+            Milliseconds to wait for the disk's exclusive root delegation before
+            the mount fails. Not allowed with read_only or conditional.
   responses:
-    ValidationError:
-      description: Validation error
+    SandboxValidationError:
+      description: Invalid request body or parameters
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    Unauthorized:
-      description: Invalid or missing authentication credentials
+          example:
+            success: false
+            error: Invalid request body
+            code: bad_request
+    PlainTextUnauthorized:
+      description: Missing or invalid authentication credentials
+      content:
+        text/plain:
+          schema:
+            type: string
+          examples:
+            missingAuthorization:
+              summary: Missing Authorization header
+              value: Must provide an Authorization header
+            invalidCredentials:
+              summary: Invalid credentials
+              value: Unauthorized
+    SandboxNotFound:
+      description: Sandbox not found
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    NotFound:
-      description: Resource not found
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/ErrorResponse'
-    InternalError:
+          example:
+            success: false
+            error: Sandbox not found
+            code: not_found
+    SandboxInternalError:
       description: Internal server error
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
-    RetryableUnavailable:
-      description: The lifecycle transition is temporarily blocked and can be retried
+          example:
+            success: false
+            error: Internal error processing sandbox request
+            code: internal_server_error
+    SandboxUnavailable:
+      description: >-
+        Sandbox capacity or runtime temporarily unavailable, or sandboxes are
+        disabled
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            noCapacity:
+              summary: No capacity
+              value:
+                success: false
+                error: No sandbox capacity is available; retry
+                code: no_capacity
+            runtimeRetryable:
+              summary: Retryable runtime failure
+              value:
+                success: false
+                error: Sandbox lifecycle request is temporarily blocked; retry
+                code: runtime_retryable
+            notEnabled:
+              summary: Sandboxes disabled
+              value:
+                success: false
+                error: Sandboxes are not enabled on this controlplane
+                code: not_enabled
+    SandboxTimeout:
+      description: Request timed out; retry
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            error: Sandbox request timed out; retry
+            code: timeout
   securitySchemes:
     ApiKeyAuth:
       type: apiKey

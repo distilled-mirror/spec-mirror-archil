@@ -252,14 +252,14 @@ components:
           format: uri
           description: >-
             Absolute public HTTPS URL that receives this rule's permitted HTTP
-            and HTTPS requests instead of their original upstream. The original
-            path is appended to this URL, and Archil overwrites the
-            archil-forwarded-host, archil-forwarded-scheme,
-            archil-forwarded-port, archil-forwarded-path, and archil-sandbox-id
-            headers with request metadata. A transform on the same rule is
-            applied before forwarding, so the forwarded request carries the
-            transformed headers. URLs containing credentials, a query, or a
-            fragment are rejected.
+            and HTTPS requests instead of their original upstream. Requires a
+            lowercase domain; IP addresses, credentials, queries, and fragments
+            are rejected. Protected and private destination addresses are
+            blocked. The original path and query are appended to this URL's path
+            prefix. Archil overwrites the archil-forwarded-host,
+            archil-forwarded-scheme, archil-forwarded-port,
+            archil-forwarded-path, and archil-sandbox-id headers with request
+            metadata. A transform on the same rule is applied before forwarding.
     SandboxEgressTransform:
       type: object
       description: >-

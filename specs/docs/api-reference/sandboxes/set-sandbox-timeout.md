@@ -6,7 +6,8 @@
 
 > Replaces one or both sandbox timeout settings. Updating `timeout` while
 the sandbox is running resets its hard expiration deadline to that many
-seconds from now. Updating `idle_ttl_seconds` resets the idle
+seconds from now, capped at 24 hours after the current session started.
+Updating `idle_ttl_seconds` resets the idle
 countdown when no direct process connection is active; zero disables
 idle expiry. Omitted settings remain unchanged. Updates are retained
 across later stops and starts. For an inactive sandbox, they apply to
@@ -118,7 +119,8 @@ paths:
       description: |
         Replaces one or both sandbox timeout settings. Updating `timeout` while
         the sandbox is running resets its hard expiration deadline to that many
-        seconds from now. Updating `idle_ttl_seconds` resets the idle
+        seconds from now, capped at 24 hours after the current session started.
+        Updating `idle_ttl_seconds` resets the idle
         countdown when no direct process connection is active; zero disables
         idle expiry. Omitted settings remain unchanged. Updates are retained
         across later stops and starts. For an inactive sandbox, they apply to
@@ -177,8 +179,9 @@ components:
           minimum: 60
           maximum: 86400
           description: >-
-            Seconds from now until a running sandbox expires, and the lifetime
-            budget for its next powered-on session.
+            Seconds from now until a running sandbox pauses, capped at 24 hours
+            after its current session started. Also sets the lifetime budget for
+            its next powered-on session.
         idle_ttl_seconds:
           type: integer
           minimum: 0
@@ -247,8 +250,8 @@ components:
           description: >-
             Lifetime budget applied independently to each powered-on session.
             Expiry pauses the sandbox, preserving memory and processes for
-            resume. Defaults to 24 hours and can be reset with the timeout
-            endpoint.
+            resume. Defaults to 24 hours. Timeout resets cannot extend a session
+            beyond 24 hours.
         idle_ttl_seconds:
           type: integer
           description: >-
@@ -262,7 +265,12 @@ components:
             processes and one-shot process controls do not count.
         base_image:
           type: string
-          description: OCI reference requested when the sandbox was created.
+          description: >-
+            OCI reference requested when the sandbox was created. Empty for a
+            sandbox created from `image_id`.
+        image_digest:
+          type: string
+          description: Image digest the sandbox was created from, if any.
         platform:
           type: string
           enum:
@@ -280,6 +288,10 @@ components:
           description: >-
             Whether services inside the sandbox can expose ingress. Explicit API
             port exposure remains available regardless of this setting.
+        mounts:
+          type: array
+          items:
+            $ref: '#/components/schemas/SandboxMount'
         created_at:
           type: string
           format: date-time
@@ -326,6 +338,45 @@ components:
           maximum: 65535
         hostname:
           type: string
+    SandboxMount:
+      type: object
+      required:
+        - disk_id
+      properties:
+        disk_id:
+          type: string
+          pattern: ^dsk-[0-9a-f]{16}$
+          description: >-
+            Existing disk owned by your account in the sandbox's region. A
+            sandbox's internal root disk cannot be used here.
+        path:
+          type: string
+          description: >-
+            Absolute guest directory to mount at. Required when more than one
+            disk is mounted; a sole mount defaults to /mnt/archil. Paths cannot
+            overlap or contain whitespace, control characters, empty components,
+            . or .. components, or a trailing slash. The root directory and
+            guest system directories (/usr, /etc, /var, /opt, /dev, ...) and
+            their descendants are reserved. A disk can be mounted once per
+            sandbox.
+        subdirectory:
+          type: string
+          description: Relative subdirectory of the disk to expose instead of its root.
+        read_only:
+          type: boolean
+          default: false
+        conditional:
+          type: boolean
+          default: false
+          description: >-
+            Send mutating operations directly to the server without a delegation
+            checkout, allowing concurrent writers.
+        queue_ms:
+          type: integer
+          minimum: 1
+          description: >-
+            Milliseconds to wait for the disk's exclusive root delegation before
+            the mount fails. Not allowed with read_only or conditional.
   responses:
     ValidationError:
       description: Validation error
