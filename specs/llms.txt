@@ -6,9 +6,9 @@
 - [Mount on macOS](https://docs.archil.com/mounting/macos.md)
 - [Mount in a container](https://docs.archil.com/mounting/containers.md)
 - [Serverless execution](https://docs.archil.com/compute/serverless-execution.md): Run bash commands directly on an Archil file system.
-- [Introduction](https://docs.archil.com/compute/sandboxes/introduction.md): Create long-running Linux VMs with persistent disks, interactive shells, services, and forks.
+- [Persistent sandboxes](https://docs.archil.com/compute/sandboxes/introduction.md): Create long-running Linux VMs with persistent disks, interactive shells, services, and forks.
 - [Sandbox images](https://docs.archil.com/compute/sandboxes/images.md): Start sandboxes from public or private OCI images and reuse prepared images.
-- [Sandbox Firewall](https://docs.archil.com/compute/sandboxes/firewall.md): Network egress filters for sandboxes.
+- [Sandbox firewall](https://docs.archil.com/compute/sandboxes/firewall.md): Network egress filters for sandboxes.
 - [Search files](https://docs.archil.com/compute/search-files.md)
 - [SQLite](https://docs.archil.com/compute/sqlite.md)
 - [Data Sources](https://docs.archil.com/concepts/data-sources.md): Configure bidirectional synchronization for Archil disks to existing data sets

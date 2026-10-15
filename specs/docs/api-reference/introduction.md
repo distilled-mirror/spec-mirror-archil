@@ -25,11 +25,14 @@ Each region has its own control plane endpoint:
 
 ## Authentication
 
-All endpoints require an API key:
+All endpoints require an API key, sent as a bearer token:
 
 ```
-Authorization: {API_KEY}
+Authorization: Bearer key-...
 ```
+
+Use the full key, including its `key-` prefix. The older form without the `Bearer` scheme (`Authorization: key-...`) is still accepted.
+API keys are specific to the region they were created in, so send requests to that region's control plane host.
 
 Create API keys in the [Archil Console](https://console.archil.com) or via the API.
 

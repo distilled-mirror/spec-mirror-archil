@@ -32,14 +32,18 @@ info:
     ## Authentication
 
 
-    All endpoints require an API key:
+    All endpoints require an API key, sent as a bearer token:
 
 
     ```
 
-    Authorization: {API_KEY}
+    Authorization: Bearer key-...
 
     ```
+
+
+    Use the full key, including its `key-` prefix. The older form without the
+    `Bearer` scheme is still accepted.
 
 
     Create API keys in the [Archil Console](https://console.archil.com) or via
@@ -181,10 +185,9 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
   securitySchemes:
     ApiKeyAuth:
-      type: apiKey
-      in: header
-      name: Authorization
-      description: API key
+      type: http
+      scheme: bearer
+      description: Archil API key, including its `key-` prefix
 
 ````
 

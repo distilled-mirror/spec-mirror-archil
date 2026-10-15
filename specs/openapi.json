@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "Archil Control Plane API",
-    "description": "The Archil Control Plane API provides programmatic access to manage disks,\npersistent sandboxes, mounts, and API keys in the Archil distributed\nfilesystem platform.\n\nAPI keys authenticate requests to this control plane and are scoped to\nyour account. They are distinct from *disk tokens*, which are per-disk\ncredentials used by clients when mounting a disk.\n\n## Authentication\n\nAll endpoints require an API key:\n\n```\nAuthorization: {API_KEY}\n```\n\nCreate API keys in the [Archil Console](https://console.archil.com) or via the API.\n\n## Response Format\n\nAll responses use a consistent envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... }\n}\n```\n\nOr on error:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Error message\"\n}\n```\n",
+    "description": "The Archil Control Plane API provides programmatic access to manage disks,\npersistent sandboxes, mounts, and API keys in the Archil distributed\nfilesystem platform.\n\nAPI keys authenticate requests to this control plane and are scoped to\nyour account. They are distinct from *disk tokens*, which are per-disk\ncredentials used by clients when mounting a disk.\n\n## Authentication\n\nAll endpoints require an API key, sent as a bearer token:\n\n```\nAuthorization: Bearer key-...\n```\n\nUse the full key, including its `key-` prefix. The older form without the `Bearer` scheme is still accepted.\n\nCreate API keys in the [Archil Console](https://console.archil.com) or via the API.\n\n## Response Format\n\nAll responses use a consistent envelope:\n\n```json\n{\n  \"success\": true,\n  \"data\": { ... }\n}\n```\n\nOr on error:\n\n```json\n{\n  \"success\": false,\n  \"error\": \"Error message\"\n}\n```\n",
     "version": "1.0.0",
     "contact": {
       "email": "support@archil.com",
@@ -2214,10 +2214,9 @@
   "components": {
     "securitySchemes": {
       "ApiKeyAuth": {
-        "type": "apiKey",
-        "in": "header",
-        "name": "Authorization",
-        "description": "API key"
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Archil API key, including its `key-` prefix"
       }
     },
     "parameters": {
