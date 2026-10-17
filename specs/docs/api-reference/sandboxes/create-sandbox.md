@@ -278,8 +278,9 @@ components:
           description: >-
             Public Linux OCI image reference. Docker shorthand and tags are
             accepted; the selected platform manifest is pinned at creation.
-            Defaults to `ubuntu:26.04` when neither this nor `image_id` is set.
-            Mutually exclusive with `image_id`.
+            Defaults to `node:24-bookworm` (Debian with Node.js, Python, git,
+            and a C toolchain) when neither this nor `image_id` is set. Mutually
+            exclusive with `image_id`.
         image_id:
           type: string
           pattern: ^[0-9a-f]{64}$

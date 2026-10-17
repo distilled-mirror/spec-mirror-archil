@@ -6,7 +6,7 @@
 - [Mount on macOS](https://docs.archil.com/mounting/macos.md)
 - [Mount in a container](https://docs.archil.com/mounting/containers.md)
 - [Serverless execution](https://docs.archil.com/compute/serverless-execution.md): Run bash commands directly on an Archil file system.
-- [Persistent sandboxes](https://docs.archil.com/compute/sandboxes/introduction.md): Create long-running Linux VMs with persistent disks, interactive shells, services, and forks.
+- [Persistent sandboxes](https://docs.archil.com/compute/sandboxes/introduction.md): Run untrusted, AI-generated code in isolated Firecracker microVMs with persistent disks.
 - [Sandbox images](https://docs.archil.com/compute/sandboxes/images.md): Start sandboxes from public or private OCI images and reuse prepared images.
 - [Sandbox firewall](https://docs.archil.com/compute/sandboxes/firewall.md): Network egress filters for sandboxes.
 - [Search files](https://docs.archil.com/compute/search-files.md)
@@ -22,8 +22,9 @@
 - [Consistency](https://docs.archil.com/details/consistency.md): Understanding Archil&apos;s consistency model between clients and data sources
 - [Application Compatibility](https://docs.archil.com/details/support.md): Archil is designed for full POSIX-compatibility
 - [Performance](https://docs.archil.com/details/performance.md): Archil Performance Specifications
+- [Performance tips](https://docs.archil.com/details/performance-tips.md): Practical ways to get the most out of an Archil disk.
 - [Client caching](https://docs.archil.com/details/caching.md): How the Archil client caches data in memory, and the controls for warming, sizing, and refreshing it.
-- [Solution Comparison](https://docs.archil.com/details/comparison.md): Archil is designed to replace block storage
+- [Solution Comparison](https://docs.archil.com/details/comparison.md): How Archil compares with EBS, EFS, and S3 FUSE adapters. Archil ran git, npm, and SQLite transaction workloads about 5x to 190x faster than Amazon EFS.
 - [Best practices](https://docs.archil.com/administration/best-practices.md): Recommended ways to structure your Archil accounts, disks, and credentials for production and multi-tenant workloads.
 - [Pricing & Billing](https://docs.archil.com/administration/billing.md): Plans, invoicing, usage monitoring, and cost management for Archil
 - [Organizations](https://docs.archil.com/administration/organizations.md): Use Organizations to effectively share disks between members of your team
