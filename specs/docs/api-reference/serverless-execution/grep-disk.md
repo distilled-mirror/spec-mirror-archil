@@ -9,7 +9,7 @@ regular expression. Listing and matching are fanned out across
 ephemeral exec containers, so the request finishes within the user's
 time budget regardless of the size of the directory.
 
-The user controls cost and latency with three knobs:
+The user controls search latency and scope with three knobs:
 
 - `maxDurationSeconds` is the wall-clock deadline (capped at 30s).
 - `concurrency` is the maximum number of parallel grep workers.
@@ -140,7 +140,7 @@ paths:
         ephemeral exec containers, so the request finishes within the user's
         time budget regardless of the size of the directory.
 
-        The user controls cost and latency with three knobs:
+        The user controls search latency and scope with three knobs:
 
         - `maxDurationSeconds` is the wall-clock deadline (capped at 30s).
         - `concurrency` is the maximum number of parallel grep workers.
@@ -282,7 +282,8 @@ components:
           format: double
           description: |
             Sum of per-container execution time in seconds, measured by the
-            runtime. Approximates billable container-seconds.
+            runtime. Diagnostic only; each search request is billed as one
+            serverless tool call regardless of this value.
         durationMs:
           type: integer
           description: End-to-end wall clock measured by the server.

@@ -9,7 +9,7 @@
 The Archil Control Plane API provides programmatic access to manage disks, mounts, and API keys in the Archil distributed filesystem platform.
 
 <Info>
-  **API keys vs. disk tokens.** API keys authenticate requests to this Control Plane API and are scoped to your account. [Disk tokens](/concepts/disk-users#disk-token-authorization) are a separate kind of credential, scoped to a single disk, used by clients when mounting. The two are not interchangeable.
+  **API keys vs. disk tokens.** API keys authenticate requests to this Control Plane API and are scoped to your account. [Disk tokens](/concepts/authorization#token-based-disk-authorization) are a separate kind of credential, scoped to a single disk, used by clients when mounting. The two are not interchangeable.
 </Info>
 
 ## Base URL

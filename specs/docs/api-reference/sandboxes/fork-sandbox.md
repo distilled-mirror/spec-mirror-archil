@@ -178,7 +178,7 @@ paths:
                   base_image: python:3.13
                   mounts:
                     - disk_id: dsk-0123456789abcdef
-                      path: /mnt/data
+                      path: /mnt/archil
                   created_at: '2026-10-06T12:00:00Z'
                   last_active_at: '2026-10-06T12:00:00Z'
         '400':
@@ -202,7 +202,7 @@ paths:
                     success: false
                     error: >-
                       sandbox has mounted disks: disk dsk-0123456789abcdef is
-                      mounted at /mnt/data; stop the sandbox before forking it
+                      mounted at /mnt/archil; stop the sandbox before forking it
                     code: sandbox_fork_mounted
                 checkpointUnavailable:
                   summary: Checkpoint unavailable
@@ -351,9 +351,11 @@ components:
         platform:
           type: string
           enum:
-            - arm64
             - amd64
-          description: Sandbox CPU architecture.
+          description: >-
+            Sandbox CPU architecture. Archil's public sandbox service runs on
+            amd64. This response field is not a creation option; callers cannot
+            select an architecture per sandbox.
         endpoints:
           type: array
           description: Public hostnames published by enabled sandbox services.

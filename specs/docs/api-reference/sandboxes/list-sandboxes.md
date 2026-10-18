@@ -211,9 +211,11 @@ components:
         platform:
           type: string
           enum:
-            - arm64
             - amd64
-          description: Sandbox CPU architecture.
+          description: >-
+            Sandbox CPU architecture. Archil's public sandbox service runs on
+            amd64. This response field is not a creation option; callers cannot
+            select an architecture per sandbox.
         endpoints:
           type: array
           description: Public hostnames published by enabled sandbox services.

@@ -146,7 +146,7 @@ paths:
               mem_size_mib: 4096
               mounts:
                 - disk_id: dsk-0123456789abcdef
-                  path: /mnt/data
+                  path: /mnt/archil
       responses:
         '202':
           description: The sandbox was created
@@ -169,7 +169,7 @@ paths:
                   base_image: python:3.13
                   mounts:
                     - disk_id: dsk-0123456789abcdef
-                      path: /mnt/data
+                      path: /mnt/archil
                   created_at: '2026-10-06T12:00:00Z'
                   last_active_at: '2026-10-06T12:00:00Z'
         '400':
@@ -276,8 +276,9 @@ components:
         base_image:
           type: string
           description: >-
-            Public Linux OCI image reference. Docker shorthand and tags are
-            accepted; the selected platform manifest is pinned at creation.
+            Public Linux OCI image reference with a linux/amd64 manifest for
+            Archil's public sandbox service. Docker shorthand and tags are
+            accepted; the deployment's platform manifest is pinned at creation.
             Defaults to `node:24-bookworm` (Debian with Node.js, Python, git,
             and a C toolchain) when neither this nor `image_id` is set. Mutually
             exclusive with `image_id`.
@@ -477,9 +478,11 @@ components:
         platform:
           type: string
           enum:
-            - arm64
             - amd64
-          description: Sandbox CPU architecture.
+          description: >-
+            Sandbox CPU architecture. Archil's public sandbox service runs on
+            amd64. This response field is not a creation option; callers cannot
+            select an architecture per sandbox.
         endpoints:
           type: array
           description: Public hostnames published by enabled sandbox services.

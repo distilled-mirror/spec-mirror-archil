@@ -26,7 +26,7 @@
 - [Client caching](https://docs.archil.com/details/caching.md): How the Archil client caches data in memory, and the controls for warming, sizing, and refreshing it.
 - [Solution Comparison](https://docs.archil.com/details/comparison.md): How Archil compares with EBS, EFS, and S3 FUSE adapters. Archil ran git, npm, and SQLite transaction workloads about 5x to 190x faster than Amazon EFS.
 - [Best practices](https://docs.archil.com/administration/best-practices.md): Recommended ways to structure your Archil accounts, disks, and credentials for production and multi-tenant workloads.
-- [Pricing & Billing](https://docs.archil.com/administration/billing.md): Plans, invoicing, usage monitoring, and cost management for Archil
+- [Pricing & Billing](https://docs.archil.com/administration/billing.md): Plans, usage rates, monthly minimums, and billing for Archil
 - [Organizations](https://docs.archil.com/administration/organizations.md): Use Organizations to effectively share disks between members of your team
 - [S3 API](https://docs.archil.com/protocols/s3-api.md): Read and write Archil disks over an S3-compatible HTTP API — list, download, upload, and delete objects with any S3 client, no mount required.
 - [TypeScript SDK](https://docs.archil.com/sdks/typescript.md): Programmatic access to Archil disks from TypeScript and Node.js applications
@@ -81,17 +81,24 @@
 - [List API Tokens](https://docs.archil.com/api-reference/tokens/list-tokens.md): Returns all API tokens for the authenticated account.
 - [Create API Token](https://docs.archil.com/api-reference/tokens/create-token.md): Creates a new API token for programmatic access. The full token value is only returned once at creation time.
 - [Delete API Token](https://docs.archil.com/api-reference/tokens/delete-token.md): Revokes and deletes an API token.
-- [AWS Lambda](https://docs.archil.com/guides/compute/aws-lambda.md): Use Archil disks from AWS Lambda functions
-- [Cloudflare Workers](https://docs.archil.com/guides/compute/cloudflare-workers.md): Access Archil disks from Cloudflare Workers
-- [Bash tool for agents](https://docs.archil.com/guides/ai/bash-tool.md): Give an AI agent a persistent file system and a bash tool, using disk.exec and the AI SDK.
-- [Vector search](https://docs.archil.com/guides/ai/faiss.md): Build high-performance vector similarity search with FAISS using Archil for shared embeddings and scalable vector databases
-- [Multi-agent systems](https://docs.archil.com/guides/ai/multi-agent-systems.md): Build multi-agent AI systems with LangChain and LangGraph using Archil for persistent memory and stateless agent architecture
-- [Jupyter Notebooks](https://docs.archil.com/guides/data-science/jupyter-serverless.md): Learn how to run Jupyter notebooks with PyTorch and MNIST training directly on Amazon S3 using Archil
-- [PostgreSQL](https://docs.archil.com/guides/databases/postgres.md): Run PostgreSQL on an Archil disk for elastic, S3-backed storage
-- [MySQL](https://docs.archil.com/guides/databases/mysql.md): Run MySQL on an Archil disk for elastic, S3-backed storage
-- [SQLite](https://docs.archil.com/guides/databases/sqlite.md): Run SQLite on an Archil disk for elastic, S3-backed storage
-- [Logging](https://docs.archil.com/guides/observability/logging.md): Using Archil to send application logs directly to S3 without code changes
-- [Firecracker](https://docs.archil.com/guides/virtualization/firecracker.md): Learn how to run Archil inside of a Firecracker microVM
+- [Coding agent in a sandbox](https://docs.archil.com/guides/agents/coding-agent.md): Give an AI agent a persistent Linux sandbox where it can install packages, write code, and run a web app you can open.
+- [Code interpreter](https://docs.archil.com/guides/agents/code-interpreter.md): Give an AI agent a stateful Python kernel in a persistent sandbox to analyze a public dataset, with results on an Archil disk.
+- [Claude Code](https://docs.archil.com/guides/agents/claude-code.md): Run Claude Code headlessly in an Archil sandbox, with its workspace and session history on an Archil disk.
+- [OpenCode](https://docs.archil.com/guides/agents/opencode.md): Run OpenCode headlessly in an Archil sandbox, with its workspace and session history on an Archil disk.
+- [OpenAI Codex](https://docs.archil.com/guides/agents/codex.md): Run the OpenAI Codex CLI headlessly in an Archil sandbox, with its workspace and session history on an Archil disk.
+- [Parallel agents](https://docs.archil.com/guides/agents/parallel-agents.md): Fork a prepared sandbox once per agent, let each agent try a different approach, and keep the fork with the best score.
+- [Vector search with LanceDB](https://docs.archil.com/guides/agents/vector-search.md): Store a LanceDB table on an Archil disk, serve vector, filtered, and hybrid search from read-only replicas, and update it in place.
+- [Analytics with DuckDB](https://docs.archil.com/guides/analytics/duckdb.md): Query 81 million places from the Overture Maps public bucket with DuckDB, without copying the data, and serve results over HTTPS.
+- [Search logs across sandboxes](https://docs.archil.com/guides/analytics/log-search.md): Write structured logs from several sandboxes to one Archil disk, then search and aggregate them from your laptop.
+- [Evals and RL environments](https://docs.archil.com/guides/training/rl-environments.md): Fork a task environment once per rollout, grade each agent run with a hidden grader, and collect the graded trajectories as a JSONL dataset on an Archil disk.
+- [Host a web app](https://docs.archil.com/guides/apps/web-app.md): Run a Python web app with a SQLite database on an Archil disk, serve it at a public URL, and fork preview environments from a template.
+- [PostgreSQL](https://docs.archil.com/guides/apps/postgres.md): Run PostgreSQL in a sandbox with its data directory on an Archil disk, and connect to it from your machine with psql.
+- [MySQL](https://docs.archil.com/guides/apps/mysql.md): Run MySQL in a sandbox with its data directory on an Archil disk, and connect to it from your machine with the mysql client.
+- [Modal](https://docs.archil.com/guides/platforms/modal.md): Mount an Archil disk in Modal Sandboxes so their files outlive the container.
+- [E2B](https://docs.archil.com/guides/platforms/e2b.md): Mount an Archil disk in E2B sandboxes so their files outlive the sandbox.
+- [Daytona](https://docs.archil.com/guides/platforms/daytona.md): Mount an Archil disk in Daytona sandboxes so their files outlive the sandbox.
+- [Vercel Sandbox](https://docs.archil.com/guides/platforms/vercel-sandbox.md): Mount an Archil disk in a Vercel Sandbox so its files outlive the sandbox.
+- [Troubleshooting mounts on other platforms](https://docs.archil.com/guides/platforms/troubleshooting.md): What happens when a sandbox goes away with an Archil disk mounted, how to release a stale lock, and notes for E2B, Daytona, Modal, and Vercel Sandbox.
 
 ## OpenAPI Specs
 

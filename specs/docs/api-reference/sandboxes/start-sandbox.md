@@ -149,7 +149,7 @@ paths:
             example:
               mounts:
                 - disk_id: dsk-0123456789abcdef
-                  path: /mnt/data
+                  path: /mnt/archil
       responses:
         '200':
           description: The sandbox is running
@@ -172,7 +172,7 @@ paths:
                   base_image: python:3.13
                   mounts:
                     - disk_id: dsk-0123456789abcdef
-                      path: /mnt/data
+                      path: /mnt/archil
                   created_at: '2026-10-06T12:00:00Z'
                   last_active_at: '2026-10-06T12:00:05Z'
                   running_at: '2026-10-06T12:00:05Z'
@@ -197,7 +197,7 @@ paths:
                   base_image: python:3.13
                   mounts:
                     - disk_id: dsk-0123456789abcdef
-                      path: /mnt/data
+                      path: /mnt/archil
                   created_at: '2026-10-06T12:00:00Z'
                   last_active_at: '2026-10-06T12:00:00Z'
         '400':
@@ -428,9 +428,11 @@ components:
         platform:
           type: string
           enum:
-            - arm64
             - amd64
-          description: Sandbox CPU architecture.
+          description: >-
+            Sandbox CPU architecture. Archil's public sandbox service runs on
+            amd64. This response field is not a creation option; callers cannot
+            select an architecture per sandbox.
         endpoints:
           type: array
           description: Public hostnames published by enabled sandbox services.
