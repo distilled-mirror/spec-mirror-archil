@@ -8,9 +8,9 @@
 
 The Archil Control Plane API provides programmatic access to manage disks, mounts, and API keys in the Archil distributed filesystem platform.
 
-<Info>
-  **API keys vs. disk tokens.** API keys authenticate requests to this Control Plane API and are scoped to your account. [Disk tokens](/concepts/authorization#token-based-disk-authorization) are a separate kind of credential, scoped to a single disk, used by clients when mounting. The two are not interchangeable.
-</Info>
+> [!NOTE]
+>
+> **API keys vs. disk tokens.** API keys authenticate requests to this Control Plane API and are scoped to your account. [Disk tokens](/concepts/authorization#token-based-disk-authorization) are a separate kind of credential, scoped to a single disk, used by clients when mounting. The two are not interchangeable.
 
 ## Base URL
 
@@ -40,21 +40,19 @@ Create API keys in the [Archil Console](https://console.archil.com) or via the A
 
 All responses use a consistent envelope:
 
-<CodeGroup>
-  ```json Success Response theme={null}
-  {
-    "success": true,
-    "data": { ... }
-  }
-  ```
+```json Success Response theme={null}
+{
+  "success": true,
+  "data": { ... }
+}
+```
 
-  ```json Error Response theme={null}
-  {
-    "success": false,
-    "error": "Error message"
-  }
-  ```
-</CodeGroup>
+```json Error Response theme={null}
+{
+  "success": false,
+  "error": "Error message"
+}
+```
 
 ## HTTP status codes
 
@@ -82,9 +80,9 @@ For example: `dsk-0123456789abcdef`
 
 ## Getting started
 
-<Note>
-  Signing up for Archil is free with no credit card required. [Create your free account](https://console.archil.com) to get an API key and start building.
-</Note>
+> [!NOTE]
+>
+> Signing up for Archil is free with no credit card required. [Create your free account](https://console.archil.com) to get an API key and start building.
 
 1. [Create an API key](/api-reference/tokens/create-token) in the console or via API
 2. Use the key in the `Authorization` header for all requests
