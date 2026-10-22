@@ -41,6 +41,7 @@
 - [Uninstall tools](https://docs.archil.com/reference/uninstall.md): Remove the Archil client, the disk CLI, and the CSI driver.
 - [Troubleshooting](https://docs.archil.com/reference/troubleshooting.md): Solutions to common issues with Archil disks
 - [Region availability](https://docs.archil.com/reference/regions.md): Archil regions and availability
+- [Bring Your Own Cloud (BYOC)](https://docs.archil.com/reference/byoc.md): Run the full Archil platform, fully managed by Archil, in your own cloud account or on bare metal.
 - [Verify Linux downloads](https://docs.archil.com/reference/verify-linux-downloads.md): Verify the authenticity and integrity of an Archil Linux release before installing it.
 - [Client Release Notes](https://docs.archil.com/reference/client-release-notes.md): Release history for the Archil client
 - [Changelog](https://docs.archil.com/reference/changelog.md): History of updates to the Archil platform and client
