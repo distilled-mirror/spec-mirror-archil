@@ -4,9 +4,9 @@
 
 # Execute Command on Disk
 
-> Launches a container with the specified disk mounted, runs the given
-command to completion, shuts down the container, and returns the command
-result.
+> Launches a Firecracker microVM with the specified disk mounted, runs the
+given command to completion, shuts down the microVM, and returns the
+command result.
 
 
 
@@ -115,9 +115,9 @@ paths:
         - Serverless Execution
       summary: Execute a command on a disk
       description: |
-        Launches a container with the specified disk mounted, runs the given
-        command to completion, shuts down the container, and returns the command
-        result.
+        Launches a Firecracker microVM with the specified disk mounted, runs the
+        given command to completion, shuts down the microVM, and returns the
+        command result.
       operationId: execDisk
       parameters:
         - $ref: '#/components/parameters/DiskId'
@@ -167,7 +167,7 @@ components:
       properties:
         command:
           type: string
-          description: Shell command to execute inside the container
+          description: Shell command to execute inside the microVM
           example: ls -la /mnt/archil
     ApiResponse_ExecDisk:
       type: object

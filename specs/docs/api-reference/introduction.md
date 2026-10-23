@@ -10,7 +10,7 @@ The Archil Control Plane API provides programmatic access to manage disks, mount
 
 > [!NOTE]
 >
-> **API keys vs. disk tokens.** API keys authenticate requests to this Control Plane API and are scoped to your account. [Disk tokens](/concepts/authorization#token-based-disk-authorization) are a separate kind of credential, scoped to a single disk, used by clients when mounting. The two are not interchangeable.
+> **API keys vs. disk tokens.** API keys authenticate requests to this Control Plane API and are scoped to your account. [Disk tokens](/concepts/authorization.md#token-based-disk-authorization) are a separate kind of credential, scoped to a single disk, used by clients when mounting. The two are not interchangeable.
 
 ## Base URL
 
@@ -84,9 +84,9 @@ For example: `dsk-0123456789abcdef`
 >
 > Signing up for Archil is free with no credit card required. [Create your free account](https://console.archil.com) to get an API key and start building.
 
-1. [Create an API key](/api-reference/tokens/create-token) in the console or via API
+1. [Create an API key](/api-reference/tokens/create-token.md) in the console or via API
 2. Use the key in the `Authorization` header for all requests
-3. [Create your first disk](/api-reference/disks/create-disk) or [persistent sandbox](/api-reference/sandboxes/create-sandbox)
+3. [Create your first disk](/api-reference/disks/create-disk.md) or [persistent sandbox](/api-reference/sandboxes/create-sandbox.md)
 
 
 This documentation is built and hosted on [Mintlify](https://mintlify.com), a developer documentation platform.

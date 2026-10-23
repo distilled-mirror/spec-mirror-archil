@@ -4,9 +4,9 @@
 
 # Execute Command with Multiple Disks
 
-> Launches a container with the supplied set of disks each mounted at its
-own relative path under `/mnt/archil`, runs the command to completion,
-and shuts down the container. Activation is atomic: every disk mounts
+> Launches a Firecracker microVM with the supplied set of disks each mounted
+at its own relative path under `/mnt/archil`, runs the command to
+completion, and shuts down the microVM. Activation is atomic: every disk mounts
 or none of them do.
 
 Relative paths must be non-empty, non-absolute, and contain no `.` /
@@ -119,14 +119,22 @@ paths:
       tags:
         - Serverless Execution
       summary: Execute a command with multiple disks mounted
-      description: |
-        Launches a container with the supplied set of disks each mounted at its
-        own relative path under `/mnt/archil`, runs the command to completion,
-        and shuts down the container. Activation is atomic: every disk mounts
+      description: >
+        Launches a Firecracker microVM with the supplied set of disks each
+        mounted
+
+        at its own relative path under `/mnt/archil`, runs the command to
+
+        completion, and shuts down the microVM. Activation is atomic: every disk
+        mounts
+
         or none of them do.
 
+
         Relative paths must be non-empty, non-absolute, and contain no `.` /
+
         `..` segments. Mounting two disks at the same relative path is an
+
         error.
       operationId: exec
       requestBody:
@@ -188,7 +196,7 @@ components:
               readOnly: true
         command:
           type: string
-          description: Shell command to execute inside the container
+          description: Shell command to execute inside the microVM
           example: ls -la /mnt/archil/data /mnt/archil/logs
     ApiResponse_Exec:
       type: object
@@ -236,7 +244,7 @@ components:
           type: boolean
           default: false
           description: |
-            When true, the disk is mounted read-only inside the container.
+            When true, the disk is mounted read-only inside the microVM.
             Writes against the mount fail with EROFS.
     ExecDiskResult:
       type: object

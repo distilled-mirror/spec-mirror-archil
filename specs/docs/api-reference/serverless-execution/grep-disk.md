@@ -6,7 +6,7 @@
 
 > Searches files under a directory on the disk for lines matching a
 regular expression. Listing and matching are fanned out across
-ephemeral exec containers, so the request finishes within the user's
+ephemeral exec microVMs, so the request finishes within the user's
 time budget regardless of the size of the directory.
 
 The user controls search latency and scope with three knobs:
@@ -137,7 +137,7 @@ paths:
       description: |
         Searches files under a directory on the disk for lines matching a
         regular expression. Listing and matching are fanned out across
-        ephemeral exec containers, so the request finishes within the user's
+        ephemeral exec microVMs, so the request finishes within the user's
         time budget regardless of the size of the directory.
 
         The user controls search latency and scope with three knobs:
@@ -221,7 +221,7 @@ components:
           default: 30
           description: |
             Wall-clock deadline for the entire request. Capped at 30
-            seconds because the runtime exec container itself is bounded
+            seconds because the runtime exec microVM itself is bounded
             at ~30s; longer requests would have their workers killed
             mid-scan.
         concurrency:
@@ -273,15 +273,15 @@ components:
           $ref: '#/components/schemas/GrepStoppedReason'
         filesScanned:
           type: integer
-          description: Files actually fed to a grep container.
+          description: Files actually fed to a grep microVM.
         containersDispatched:
           type: integer
-          description: Number of grep containers started for this request.
+          description: Number of grep microVMs started for this request.
         computeSecondsUsed:
           type: number
           format: double
           description: |
-            Sum of per-container execution time in seconds, measured by the
+            Sum of per-microVM execution time in seconds, measured by the
             runtime. Diagnostic only; each search request is billed as one
             serverless tool call regardless of this value.
         durationMs:
@@ -297,8 +297,8 @@ components:
         grepMs:
           type: integer
           description: |
-            Wall-clock time spent matching, from the first grep container
-            being dispatched to the last container reporting results. 0 if
+            Wall-clock time spent matching, from the first grep microVM
+            being dispatched to the last microVM reporting results. 0 if
             no batches ran.
     ErrorResponse:
       type: object

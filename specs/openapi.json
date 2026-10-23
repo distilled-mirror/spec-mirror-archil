@@ -412,7 +412,7 @@
       "post": {
         "operationId": "execDisk",
         "summary": "Execute a command on a disk",
-        "description": "Launches a container with the specified disk mounted, runs the given\ncommand to completion, shuts down the container, and returns the command\nresult.\n",
+        "description": "Launches a Firecracker microVM with the specified disk mounted, runs the\ngiven command to completion, shuts down the microVM, and returns the\ncommand result.\n",
         "tags": [
           "Serverless Execution"
         ],
@@ -471,7 +471,7 @@
       "post": {
         "operationId": "grepDisk",
         "summary": "Parallel grep over a directory on a disk",
-        "description": "Searches files under a directory on the disk for lines matching a\nregular expression. Listing and matching are fanned out across\nephemeral exec containers, so the request finishes within the user's\ntime budget regardless of the size of the directory.\n\nThe user controls search latency and scope with three knobs:\n\n- `maxDurationSeconds` is the wall-clock deadline (capped at 30s).\n- `concurrency` is the maximum number of parallel grep workers.\n  Higher concurrency finishes larger datasets within the deadline,\n  at proportionally more compute.\n- `maxResults` causes the search to short-circuit after the\n  aggregator has collected this many matches.\n\nWith `recursive: false` only files directly under `directory` are\nsearched. With `recursive: true` subdirectories are walked\nbreadth-first and grep workers are dispatched as soon as each level\nfinishes listing — listing and matching overlap.\n\nThe matches returned when stopping early on `maxResults` are a sample\nof whichever workers reported first, not the lexicographically first\nN. The response surfaces `stoppedReason` so callers can distinguish\ncompletion from early termination.\n",
+        "description": "Searches files under a directory on the disk for lines matching a\nregular expression. Listing and matching are fanned out across\nephemeral exec microVMs, so the request finishes within the user's\ntime budget regardless of the size of the directory.\n\nThe user controls search latency and scope with three knobs:\n\n- `maxDurationSeconds` is the wall-clock deadline (capped at 30s).\n- `concurrency` is the maximum number of parallel grep workers.\n  Higher concurrency finishes larger datasets within the deadline,\n  at proportionally more compute.\n- `maxResults` causes the search to short-circuit after the\n  aggregator has collected this many matches.\n\nWith `recursive: false` only files directly under `directory` are\nsearched. With `recursive: true` subdirectories are walked\nbreadth-first and grep workers are dispatched as soon as each level\nfinishes listing — listing and matching overlap.\n\nThe matches returned when stopping early on `maxResults` are a sample\nof whichever workers reported first, not the lexicographically first\nN. The response surfaces `stoppedReason` so callers can distinguish\ncompletion from early termination.\n",
         "tags": [
           "Serverless Execution"
         ],
@@ -520,7 +520,7 @@
       "post": {
         "operationId": "exec",
         "summary": "Execute a command with multiple disks mounted",
-        "description": "Launches a container with the supplied set of disks each mounted at its\nown relative path under `/mnt/archil`, runs the command to completion,\nand shuts down the container. Activation is atomic: every disk mounts\nor none of them do.\n\nRelative paths must be non-empty, non-absolute, and contain no `.` /\n`..` segments. Mounting two disks at the same relative path is an\nerror.\n",
+        "description": "Launches a Firecracker microVM with the supplied set of disks each mounted\nat its own relative path under `/mnt/archil`, runs the command to\ncompletion, and shuts down the microVM. Activation is atomic: every disk mounts\nor none of them do.\n\nRelative paths must be non-empty, non-absolute, and contain no `.` /\n`..` segments. Mounting two disks at the same relative path is an\nerror.\n",
         "tags": [
           "Serverless Execution"
         ],
@@ -2209,6 +2209,168 @@
           }
         }
       }
+    },
+    "/api/billing/usage": {
+      "get": {
+        "operationId": "getBillingUsage",
+        "summary": "Get metered usage over a window",
+        "description": "Returns what the account's meters recorded over a window, for the window as a whole and per interval, in each meter's own unit (vCPU-hours, GiB-hours, GiB-months, calls) with no prices applied. Usage reaches billing once per reporter interval from every region, so an interval's figures can still grow for a few minutes after it ends, longer if a region's reporter is behind. The default window is the seven days (hourly: 24 hours) up to now; a window may be at most 31 days, and is widened to whole intervals.\n",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "billing:usage:get"
+            ]
+          },
+          {
+            "SessionTokenAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UsageStart"
+          },
+          {
+            "$ref": "#/components/parameters/UsageEnd"
+          },
+          {
+            "$ref": "#/components/parameters/UsageFor"
+          },
+          {
+            "$ref": "#/components/parameters/UsageGranularity"
+          },
+          {
+            "$ref": "#/components/parameters/UsageTimezone"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usage over the window and per interval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BillingUsage"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/billing/costs": {
+      "get": {
+        "operationId": "getBillingCosts",
+        "summary": "Get the cost of metered usage over a window",
+        "description": "Returns the same usage as `/api/billing/usage` priced at the account's rates, for the window and per interval and meter, before the plan's included credits and base price: the cost of what was used, not what will be invoiced. Summed over the billing period it is the usage line of the invoice; `/api/billing/summary` applies the plan's base price and included credits on top. Money is in integer cents. On a plan that prices no usage, `priced` is false and every cost is zero.\n",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "billing:costs:get"
+            ]
+          },
+          {
+            "SessionTokenAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/UsageStart"
+          },
+          {
+            "$ref": "#/components/parameters/UsageEnd"
+          },
+          {
+            "$ref": "#/components/parameters/UsageFor"
+          },
+          {
+            "$ref": "#/components/parameters/UsageGranularity"
+          },
+          {
+            "$ref": "#/components/parameters/UsageTimezone"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cost over the window and per interval",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BillingCosts"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/api/billing/summary": {
+      "get": {
+        "operationId": "getBillingSummary",
+        "summary": "Get a billing period's statement as a sum",
+        "description": "Returns a billing period's statement as a sum: `meteredCostCents`, the period's usage at the account's rates with a breakdown by meter; `adjustments`, the lines the plan applies (the included credits taken off, the base price added); and `billedCostCents`, what they come to, which is what the period invoices or would if it ended now. Also the account's standing on the plan's credit pool and, for the current period, a projection to its end at the recent daily pace. A past period's lines are read from the invoices issued for it. The only billing route where the plan's base price and included credits enter. Money is in integer cents. On a plan that prices no usage, `priced` is false and the amounts are zero.\n",
+        "tags": [
+          "Billing"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "billing:summary:get"
+            ]
+          },
+          {
+            "SessionTokenAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SummaryPeriod"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The period's statement as a sum, with a projection for the current period",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_BillingSummary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "502": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2220,6 +2382,73 @@
       }
     },
     "parameters": {
+      "UsageStart": {
+        "name": "start",
+        "in": "query",
+        "description": "Start of the window, inclusive: an RFC 3339 timestamp, or a YYYY-MM-DD date taken at midnight in `timezone`. Defaults to seven days (hourly: 24 hours) before `end`. Not with `for`.\n",
+        "schema": {
+          "type": "string",
+          "example": "2026-10-13"
+        }
+      },
+      "UsageEnd": {
+        "name": "end",
+        "in": "query",
+        "description": "End of the window, exclusive, in the same forms as `start`. Defaults to now. Not with `for`.\n",
+        "schema": {
+          "type": "string",
+          "example": "2026-10-20"
+        }
+      },
+      "UsageFor": {
+        "name": "for",
+        "in": "query",
+        "description": "A named window relative to now in `timezone`, instead of `start` and `end`. Weeks start on Monday. A window may run past now; the intervals after it are left out.\n",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "today",
+            "yesterday",
+            "this-week",
+            "last-week",
+            "this-month",
+            "last-month"
+          ]
+        }
+      },
+      "SummaryPeriod": {
+        "name": "period",
+        "in": "query",
+        "description": "Which billing period: `current` (the default), or a YYYY-MM-DD date (UTC) inside a past period that has been invoiced; the day a period starts on selects it. A past period is read whole from the invoices issued for it, named in `invoices`: its metered quantities and cost as billed, the included credits taken off, the base price, and any other line under its own name.\n",
+        "schema": {
+          "type": "string",
+          "default": "current",
+          "example": "2026-09-20"
+        }
+      },
+      "UsageGranularity": {
+        "name": "granularity",
+        "in": "query",
+        "description": "Width of each interval. Days are aligned to `timezone`; hours are UTC.",
+        "schema": {
+          "type": "string",
+          "enum": [
+            "1d",
+            "1h"
+          ],
+          "default": "1d"
+        }
+      },
+      "UsageTimezone": {
+        "name": "timezone",
+        "in": "query",
+        "description": "IANA timezone that day intervals and dates are aligned to.",
+        "schema": {
+          "type": "string",
+          "default": "UTC",
+          "example": "America/Los_Angeles"
+        }
+      },
       "DiskId": {
         "name": "id",
         "in": "path",
@@ -4087,7 +4316,7 @@
         "properties": {
           "command": {
             "type": "string",
-            "description": "Shell command to execute inside the container",
+            "description": "Shell command to execute inside the microVM",
             "example": "ls -la /mnt/archil"
           }
         }
@@ -4194,7 +4423,7 @@
           },
           "command": {
             "type": "string",
-            "description": "Shell command to execute inside the container",
+            "description": "Shell command to execute inside the microVM",
             "example": "ls -la /mnt/archil/data /mnt/archil/logs"
           }
         }
@@ -4218,7 +4447,7 @@
           "readOnly": {
             "type": "boolean",
             "default": false,
-            "description": "When true, the disk is mounted read-only inside the container.\nWrites against the mount fail with EROFS.\n"
+            "description": "When true, the disk is mounted read-only inside the microVM.\nWrites against the mount fail with EROFS.\n"
           }
         }
       },
@@ -4265,7 +4494,7 @@
             "minimum": 1,
             "maximum": 30,
             "default": 30,
-            "description": "Wall-clock deadline for the entire request. Capped at 30\nseconds because the runtime exec container itself is bounded\nat ~30s; longer requests would have their workers killed\nmid-scan.\n"
+            "description": "Wall-clock deadline for the entire request. Capped at 30\nseconds because the runtime exec microVM itself is bounded\nat ~30s; longer requests would have their workers killed\nmid-scan.\n"
           },
           "concurrency": {
             "type": "integer",
@@ -4342,16 +4571,16 @@
           },
           "filesScanned": {
             "type": "integer",
-            "description": "Files actually fed to a grep container."
+            "description": "Files actually fed to a grep microVM."
           },
           "containersDispatched": {
             "type": "integer",
-            "description": "Number of grep containers started for this request."
+            "description": "Number of grep microVMs started for this request."
           },
           "computeSecondsUsed": {
             "type": "number",
             "format": "double",
-            "description": "Sum of per-container execution time in seconds, measured by the\nruntime. Diagnostic only; each search request is billed as one\nserverless tool call regardless of this value.\n"
+            "description": "Sum of per-microVM execution time in seconds, measured by the\nruntime. Diagnostic only; each search request is billed as one\nserverless tool call regardless of this value.\n"
           },
           "durationMs": {
             "type": "integer",
@@ -4363,7 +4592,7 @@
           },
           "grepMs": {
             "type": "integer",
-            "description": "Wall-clock time spent matching, from the first grep container\nbeing dispatched to the last container reporting results. 0 if\nno batches ran.\n"
+            "description": "Wall-clock time spent matching, from the first grep microVM\nbeing dispatched to the last microVM reporting results. 0 if\nno batches ran.\n"
           }
         }
       },
@@ -4432,6 +4661,539 @@
                 "description": "URL lifetime in seconds."
               }
             }
+          }
+        }
+      },
+      "BillingPeriod": {
+        "type": "object",
+        "required": [
+          "start",
+          "end"
+        ],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds."
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds."
+          }
+        }
+      },
+      "BillingUsageQuantity": {
+        "type": "object",
+        "required": [
+          "quantity",
+          "unit"
+        ],
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "description": "In the meter's own unit."
+          },
+          "unit": {
+            "type": "string",
+            "description": "vCPU-hours, GiB-hours, GiB-months or calls."
+          }
+        }
+      },
+      "BillingUsageInterval": {
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "features"
+        ],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds."
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds, exclusive."
+          },
+          "features": {
+            "type": "object",
+            "description": "Quantity per meter in the interval, keyed by feature id.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BillingUsageQuantity"
+            }
+          }
+        }
+      },
+      "BillingUsageWindow": {
+        "type": "object",
+        "description": "The window as a whole, the summary the intervals break down.",
+        "required": [
+          "start",
+          "end",
+          "features"
+        ],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds."
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds, exclusive."
+          },
+          "features": {
+            "type": "object",
+            "description": "Quantity per meter over the window, keyed by feature id; the intervals' sums.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BillingUsageQuantity"
+            }
+          }
+        }
+      },
+      "BillingUsage": {
+        "type": "object",
+        "required": [
+          "granularity",
+          "timezone",
+          "window",
+          "intervals"
+        ],
+        "properties": {
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "1d",
+              "1h"
+            ]
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "window": {
+            "$ref": "#/components/schemas/BillingUsageWindow"
+          },
+          "intervals": {
+            "type": "array",
+            "description": "Newest first, each the window's share of one interval. Intervals after now are left out.",
+            "items": {
+              "$ref": "#/components/schemas/BillingUsageInterval"
+            }
+          }
+        }
+      },
+      "ApiResponse_BillingUsage": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/BillingUsage"
+          }
+        }
+      },
+      "BillingFeatureCost": {
+        "type": "object",
+        "required": [
+          "quantity",
+          "unit",
+          "costCents"
+        ],
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "description": "In the meter's own unit."
+          },
+          "unit": {
+            "type": "string"
+          },
+          "costCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Quantity at the account's rate, in integer cents."
+          }
+        }
+      },
+      "BillingCostInterval": {
+        "type": "object",
+        "required": [
+          "start",
+          "end",
+          "costCents",
+          "features"
+        ],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds."
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds, exclusive."
+          },
+          "costCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The interval's usage at the account's rates, in integer cents; the sum of `features`."
+          },
+          "features": {
+            "type": "object",
+            "description": "Quantity and cost per meter in the interval, keyed by feature id.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BillingFeatureCost"
+            }
+          }
+        }
+      },
+      "BillingCostWindow": {
+        "type": "object",
+        "description": "The window as a whole, the summary the intervals break down. Its figures are priced over the whole span and rounded once per meter, so they are the same at any granularity and agree with `summary` over the billing period; the intervals, each rounded on its own, can add up to a little less.",
+        "required": [
+          "start",
+          "end",
+          "costCents",
+          "features"
+        ],
+        "properties": {
+          "start": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds."
+          },
+          "end": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds, exclusive."
+          },
+          "costCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Usage over the window at the account's rates, in integer cents."
+          },
+          "features": {
+            "type": "object",
+            "description": "Quantity and cost per meter over the window, keyed by feature id.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BillingFeatureCost"
+            }
+          }
+        }
+      },
+      "BillingCosts": {
+        "type": "object",
+        "required": [
+          "granularity",
+          "timezone",
+          "currency",
+          "priced",
+          "ratesCentsPerUnit",
+          "window",
+          "intervals"
+        ],
+        "properties": {
+          "granularity": {
+            "type": "string",
+            "enum": [
+              "1d",
+              "1h"
+            ]
+          },
+          "timezone": {
+            "type": "string"
+          },
+          "currency": {
+            "type": "string"
+          },
+          "priced": {
+            "type": "boolean",
+            "description": "False when the plan prices no usage; every cost is then zero."
+          },
+          "ratesCentsPerUnit": {
+            "type": "object",
+            "description": "Cost of one unit of each meter, in cents per unit as a decimal (a rate can be below a cent), keyed by feature id.",
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "window": {
+            "$ref": "#/components/schemas/BillingCostWindow"
+          },
+          "intervals": {
+            "type": "array",
+            "description": "Newest first, each the window's share of one interval. Intervals after now are left out.",
+            "items": {
+              "$ref": "#/components/schemas/BillingCostInterval"
+            }
+          },
+          "billingPeriod": {
+            "description": "The current billing period, which `/api/billing/summary` sums; absent on a plan without one.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BillingPeriod"
+              }
+            ]
+          }
+        }
+      },
+      "ApiResponse_BillingCosts": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/BillingCosts"
+          }
+        }
+      },
+      "BillingSummaryPlan": {
+        "type": "object",
+        "required": [
+          "id",
+          "basePriceCents",
+          "includedCredits",
+          "overagePricePerCreditCents"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The plan id, such as `enterprise`."
+          },
+          "basePriceCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The recurring fee per billing period, in integer cents."
+          },
+          "includedCredits": {
+            "type": "number",
+            "description": "Credits the plan grants each period."
+          },
+          "overagePricePerCreditCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What each credit past the granted ones costs, in integer cents."
+          }
+        }
+      },
+      "BillingCreditStanding": {
+        "type": "object",
+        "required": [
+          "granted",
+          "used",
+          "remaining"
+        ],
+        "properties": {
+          "granted": {
+            "type": "number",
+            "description": "Credits the period grants."
+          },
+          "used": {
+            "type": "number",
+            "description": "Credits drawn so far, rounded to two decimals."
+          },
+          "remaining": {
+            "type": "number",
+            "description": "Credits left before overage, rounded to two decimals."
+          }
+        }
+      },
+      "BillingAdjustment": {
+        "type": "object",
+        "required": [
+          "type",
+          "name",
+          "amountCents"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "included_credits",
+              "base_price",
+              "other"
+            ],
+            "description": "Which plan term the line applies; the key to branch on. `other` is a line the processor billed on a past period that is neither, such as a proration, carried with its own `name`."
+          },
+          "name": {
+            "type": "string",
+            "description": "The line's label, such as `Included credits` or `Base price`."
+          },
+          "amountCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "In integer cents; negative for a discount."
+          }
+        }
+      },
+      "BillingSummaryProjection": {
+        "type": "object",
+        "required": [
+          "meteredCostCents",
+          "billedCostCents",
+          "dailyRateCents",
+          "paceStart",
+          "paceEnd",
+          "daysRemaining"
+        ],
+        "properties": {
+          "meteredCostCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Usage at the account's rates the period is projected to reach, in integer cents."
+          },
+          "billedCostCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What that usage would invoice, in integer cents."
+          },
+          "dailyRateCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The pace the projection extends, in integer cents per day; `meteredCostCents` so far plus `dailyRateCents` × `daysRemaining`."
+          },
+          "paceStart": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds; the pace is the mean over the elapsed UTC days from here to `paceEnd`, the last ones before now inside the period."
+          },
+          "paceEnd": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Unix timestamp in seconds, exclusive."
+          },
+          "daysRemaining": {
+            "type": "number",
+            "description": "Days from now to the period end."
+          }
+        }
+      },
+      "BillingIssuedInvoice": {
+        "type": "object",
+        "required": [
+          "id",
+          "status"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "description": "open, paid or uncollectible."
+          },
+          "hostedInvoiceUrl": {
+            "type": "string",
+            "description": "The invoice as the billing processor hosts it."
+          }
+        }
+      },
+      "BillingSummary": {
+        "type": "object",
+        "required": [
+          "priced",
+          "currency",
+          "billingPeriod",
+          "plan",
+          "meteredCostCents",
+          "meteredCostBreakdown",
+          "adjustments",
+          "billedCostCents"
+        ],
+        "properties": {
+          "priced": {
+            "type": "boolean",
+            "description": "False when the plan prices no usage; the quantities are still reported, the amounts are zero, and `credit` and `projected` are absent."
+          },
+          "currency": {
+            "type": "string"
+          },
+          "billingPeriod": {
+            "description": "The period read; the UTC calendar month for an account without a billing cycle.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BillingPeriod"
+              }
+            ]
+          },
+          "plan": {
+            "$ref": "#/components/schemas/BillingSummaryPlan"
+          },
+          "credit": {
+            "description": "Billing's own standing on the plan's credit pool, in credits, on the current period only (a past period's is not kept; its `adjustments` show the credits drawn). `used` equals `meteredCostCents` at the overage price unless a usage report arrived after a period boundary, which billing credits to the period it arrived in.\n",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BillingCreditStanding"
+              }
+            ]
+          },
+          "meteredCostCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The period's usage at the account's rates, before any adjustment, in integer cents; the sum of `meteredCostBreakdown`. On a past period, as its invoice billed it."
+          },
+          "meteredCostBreakdown": {
+            "type": "object",
+            "description": "The metered cost by meter, with quantities, keyed by feature id. Sums to `meteredCostCents`.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BillingFeatureCost"
+            }
+          },
+          "adjustments": {
+            "type": "array",
+            "description": "The lines between `meteredCostCents` and `billedCostCents`, which sum to their difference.",
+            "items": {
+              "$ref": "#/components/schemas/BillingAdjustment"
+            }
+          },
+          "billedCostCents": {
+            "type": "integer",
+            "format": "int64",
+            "description": "What the period invoices, or would if it ended now; `meteredCostCents` plus the adjustments, to the cent."
+          },
+          "projected": {
+            "description": "The period end at the recent daily pace; absent for a past period or without an elapsed day of usage.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/BillingSummaryProjection"
+              }
+            ]
+          },
+          "invoices": {
+            "type": "array",
+            "description": "On a past period, the invoices its lines were read from, oldest first; the base price is billed as a period starts and the usage as it ends. Absent on the current period, which is not invoiced yet.",
+            "items": {
+              "$ref": "#/components/schemas/BillingIssuedInvoice"
+            }
+          }
+        }
+      },
+      "ApiResponse_BillingSummary": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "$ref": "#/components/schemas/BillingSummary"
           }
         }
       }
