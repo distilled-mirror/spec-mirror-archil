@@ -102,6 +102,7 @@
 - [E2B](https://docs.archil.com/guides/platforms/e2b.md): Mount an Archil disk in E2B sandboxes so their files outlive the sandbox.
 - [Daytona](https://docs.archil.com/guides/platforms/daytona.md): Mount an Archil disk in Daytona sandboxes so their files outlive the sandbox.
 - [Vercel Sandbox](https://docs.archil.com/guides/platforms/vercel-sandbox.md): Mount an Archil disk in a Vercel Sandbox so its files outlive the sandbox.
+- [AWS Lambda MicroVMs](https://docs.archil.com/guides/platforms/lambda-microvms.md): Mount an Archil disk in an AWS Lambda MicroVM so its files outlive the MicroVM.
 - [Troubleshooting mounts on other platforms](https://docs.archil.com/guides/platforms/troubleshooting.md): What happens when a sandbox goes away with an Archil disk mounted, how to release a stale lock, and notes for E2B, Daytona, Modal, and Vercel Sandbox.
 
 ## OpenAPI Specs
