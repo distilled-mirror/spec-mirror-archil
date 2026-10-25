@@ -98,11 +98,15 @@
 - [Host a web app](https://docs.archil.com/guides/apps/web-app.md): Run a Python web app with a SQLite database on an Archil disk, serve it at a public URL, and fork preview environments from a template.
 - [PostgreSQL](https://docs.archil.com/guides/apps/postgres.md): Run PostgreSQL in a sandbox with its data directory on an Archil disk, and connect to it from your machine with psql.
 - [MySQL](https://docs.archil.com/guides/apps/mysql.md): Run MySQL in a sandbox with its data directory on an Archil disk, and connect to it from your machine with the mysql client.
-- [Modal](https://docs.archil.com/guides/platforms/modal.md): Mount an Archil disk in Modal Sandboxes so their files outlive the container.
-- [E2B](https://docs.archil.com/guides/platforms/e2b.md): Mount an Archil disk in E2B sandboxes so their files outlive the sandbox.
 - [Daytona](https://docs.archil.com/guides/platforms/daytona.md): Mount an Archil disk in Daytona sandboxes so their files outlive the sandbox.
+- [E2B](https://docs.archil.com/guides/platforms/e2b.md): Mount an Archil disk in E2B sandboxes so their files outlive the sandbox.
+- [exe.dev](https://docs.archil.com/guides/platforms/exe-dev.md): Mount one Archil disk in many exe.dev VMs so they share files with each other and with the rest of your stack.
+- [Fly.io Sprites](https://docs.archil.com/guides/platforms/sprites.md): Mount one Archil disk in many Sprites so they share files with each other and with the rest of your stack.
+- [Modal](https://docs.archil.com/guides/platforms/modal.md): Mount an Archil disk in Modal Sandboxes so their files outlive the container.
 - [Vercel Sandbox](https://docs.archil.com/guides/platforms/vercel-sandbox.md): Mount an Archil disk in a Vercel Sandbox so its files outlive the sandbox.
 - [AWS Lambda MicroVMs](https://docs.archil.com/guides/platforms/lambda-microvms.md): Mount an Archil disk in an AWS Lambda MicroVM so its files outlive the MicroVM.
+- [Cloudflare Containers](https://docs.archil.com/guides/platforms/cloudflare-containers.md): Mount an Archil disk in a Cloudflare Container so its files outlive the container.
+- [Google Cloud Run](https://docs.archil.com/guides/platforms/cloud-run.md): Mount an Archil disk in a Cloud Run service so its files outlive every instance and revision.
 - [Troubleshooting mounts on other platforms](https://docs.archil.com/guides/platforms/troubleshooting.md): What happens when a sandbox goes away with an Archil disk mounted, how to release a stale lock, and notes for E2B, Daytona, Modal, and Vercel Sandbox.
 
 ## OpenAPI Specs
