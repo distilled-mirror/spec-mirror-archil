@@ -333,10 +333,11 @@ components:
           type: integer
           minimum: 0
           maximum: 86400
+          default: 1800
           description: >-
             Pause after this many seconds without a direct process connection,
-            preserving memory and processes for resume. Omit or set to zero to
-            disable idle expiry.
+            preserving memory and processes for resume. Defaults to 1800 (30
+            minutes) when omitted. Zero disables idle expiry.
         max_concurrent_execs:
           type: integer
           minimum: 1
@@ -411,8 +412,8 @@ components:
           type: boolean
           default: false
           description: >-
-            Send mutating operations directly to the server without a delegation
-            checkout, allowing concurrent writers.
+            Mount in conditional mode, which lets this mount write to the disk
+            without a delegation checkout, allowing concurrent writers.
         queue_ms:
           type: integer
           minimum: 1

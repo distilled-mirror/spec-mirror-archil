@@ -21,14 +21,14 @@
 - [Security & Compliance](https://docs.archil.com/details/security.md): How Archil protects your data, and what we commit to contractually
 - [Consistency](https://docs.archil.com/details/consistency.md): Understanding Archil&apos;s consistency model between clients and data sources
 - [Application Compatibility](https://docs.archil.com/details/support.md): Archil is designed for full POSIX-compatibility
-- [Performance](https://docs.archil.com/details/performance.md): Archil Performance Specifications
+- [Performance](https://docs.archil.com/details/performance.md): Measured Archil latency and throughput, and how to reproduce every number yourself with a public script.
 - [Performance tips](https://docs.archil.com/details/performance-tips.md): Practical ways to get the most out of an Archil disk.
 - [Client caching](https://docs.archil.com/details/caching.md): How the Archil client caches data in memory, and the controls for warming, sizing, and refreshing it.
 - [Solution Comparison](https://docs.archil.com/details/comparison.md): How Archil compares with EBS, EFS, and S3 FUSE adapters. Archil ran git, npm, and SQLite transaction workloads about 5x to 190x faster than Amazon EFS.
 - [Best practices](https://docs.archil.com/administration/best-practices.md): Recommended ways to structure your Archil accounts, disks, and credentials for production and multi-tenant workloads.
 - [Pricing & Billing](https://docs.archil.com/administration/billing.md): Plans, usage rates, monthly minimums, and billing for Archil
 - [Organizations](https://docs.archil.com/administration/organizations.md): Use Organizations to effectively share disks between members of your team
-- [S3 API](https://docs.archil.com/protocols/s3-api.md): Read and write Archil disks over an S3-compatible HTTP API — list, download, upload, and delete objects with any S3 client, no mount required.
+- [S3 API](https://docs.archil.com/protocols/s3-api.md): Read and write Archil disks over an S3-compatible HTTP API — list, download, upload, copy, and delete objects with any S3 client, no mount required.
 - [TypeScript SDK](https://docs.archil.com/sdks/typescript.md): Programmatic access to Archil disks from TypeScript and Node.js applications
 - [Python SDK](https://docs.archil.com/sdks/python.md): Programmatic access to Archil disks from Python scripts, CI, and notebooks
 - [AI SDK](https://docs.archil.com/integrations/ai-sdk.md): Context your agent can understand
@@ -41,7 +41,9 @@
 - [Uninstall tools](https://docs.archil.com/reference/uninstall.md): Remove the Archil client, the disk CLI, and the CSI driver.
 - [Troubleshooting](https://docs.archil.com/reference/troubleshooting.md): Solutions to common issues with Archil disks
 - [Region availability](https://docs.archil.com/reference/regions.md): Archil regions and availability
+- [Limits](https://docs.archil.com/reference/limits.md): Current hard limits for Archil disks, files, sandboxes, and the S3 API, and the highest load observed in production.
 - [Bring Your Own Cloud (BYOC)](https://docs.archil.com/reference/byoc.md): Run the full Archil platform, fully managed by Archil, in your own cloud account or on bare metal.
+- [Data ownership and portability](https://docs.archil.com/reference/data-ownership.md): Where your data lives, how to get it out, and what happens to it if you stop using Archil. Disks synced to your own bucket store files as ordinary S3 objects that any S3 tool can read without Archil.
 - [Verify Linux downloads](https://docs.archil.com/reference/verify-linux-downloads.md): Verify the authenticity and integrity of an Archil Linux release before installing it.
 - [Client Release Notes](https://docs.archil.com/reference/client-release-notes.md): Release history for the Archil client
 - [Changelog](https://docs.archil.com/reference/changelog.md): History of updates to the Archil platform and client
@@ -98,12 +100,12 @@
 - [Host a web app](https://docs.archil.com/guides/apps/web-app.md): Run a Python web app with a SQLite database on an Archil disk, serve it at a public URL, and fork preview environments from a template.
 - [PostgreSQL](https://docs.archil.com/guides/apps/postgres.md): Run PostgreSQL in a sandbox with its data directory on an Archil disk, and connect to it from your machine with psql.
 - [MySQL](https://docs.archil.com/guides/apps/mysql.md): Run MySQL in a sandbox with its data directory on an Archil disk, and connect to it from your machine with the mysql client.
-- [Daytona](https://docs.archil.com/guides/platforms/daytona.md): Mount an Archil disk in Daytona sandboxes so their files outlive the sandbox.
-- [E2B](https://docs.archil.com/guides/platforms/e2b.md): Mount an Archil disk in E2B sandboxes so their files outlive the sandbox.
+- [Daytona](https://docs.archil.com/guides/platforms/daytona.md): Already on Daytona? Mount an Archil disk in your Daytona sandboxes so agent workspaces outlive the sandbox and stay portable.
+- [E2B](https://docs.archil.com/guides/platforms/e2b.md): Already on E2B? Mount an Archil disk in your E2B sandboxes so agent workspaces outlive the sandbox and stay portable.
 - [exe.dev](https://docs.archil.com/guides/platforms/exe-dev.md): Mount one Archil disk in many exe.dev VMs so they share files with each other and with the rest of your stack.
 - [Fly.io Sprites](https://docs.archil.com/guides/platforms/sprites.md): Mount one Archil disk in many Sprites so they share files with each other and with the rest of your stack.
 - [Modal](https://docs.archil.com/guides/platforms/modal.md): Mount an Archil disk in Modal Sandboxes so their files outlive the container.
-- [Vercel Sandbox](https://docs.archil.com/guides/platforms/vercel-sandbox.md): Mount an Archil disk in a Vercel Sandbox so its files outlive the sandbox.
+- [Vercel Sandbox](https://docs.archil.com/guides/platforms/vercel-sandbox.md): Already on Vercel Sandbox? Mount an Archil disk so agent workspaces outlive the sandbox and stay portable.
 - [AWS Lambda MicroVMs](https://docs.archil.com/guides/platforms/lambda-microvms.md): Mount an Archil disk in an AWS Lambda MicroVM so its files outlive the MicroVM.
 - [Cloudflare Containers](https://docs.archil.com/guides/platforms/cloudflare-containers.md): Mount an Archil disk in a Cloudflare Container so its files outlive the container.
 - [Google Cloud Run](https://docs.archil.com/guides/platforms/cloud-run.md): Mount an Archil disk in a Cloud Run service so its files outlive every instance and revision.

@@ -356,8 +356,8 @@ components:
           type: boolean
           default: false
           description: >-
-            Send mutating operations directly to the server without a delegation
-            checkout, allowing concurrent writers.
+            Mount in conditional mode, which lets this mount write to the disk
+            without a delegation checkout, allowing concurrent writers.
         queue_ms:
           type: integer
           minimum: 1
