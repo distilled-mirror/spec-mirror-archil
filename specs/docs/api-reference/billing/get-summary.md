@@ -4,7 +4,7 @@
 
 # Get Summary
 
-> Returns a billing period's statement as a sum: `meteredCostCents`, the period's usage at the account's rates with a breakdown by meter; `adjustments`, the lines the plan applies (the included credits taken off, the base price added); and `billedCostCents`, what they come to, which is what the period invoices or would if it ended now. Also the account's standing on the plan's credit pool and, for the current period, a projection to its end at the recent daily pace. A past period's lines are read from the invoices issued for it. The only billing route where the plan's base price and included credits enter. Money is in integer cents. On a plan that prices no usage, `priced` is false and the amounts are zero.
+> Returns a billing period's statement as billing itself states it: `lines`, each line invoiced for the period or previewed for its end (a fixed fee, a meter's usage billed past its grants, a credit taken off, anything else under its own name), and `billedCost`, their sum, which is what the period invoices or would if it ended now. On the current period also `credits`, the grants the account still draws on, and a projection to the period end at the recent daily pace. Nothing here is derived from the plan's terms: a plan billing can express, this route reports. Money is in dollars to the cent, before tax. A line is before discounts, as billing reports it, and what a reward takes off follows as an `other` line named `Discount`: off each line previewed for the period end, and off each invoice as a whole (its total under its lines' sum), on the span of the invoice's fixed fee when it has one, else of its first line on the period. So the sum is what the period invoiced, or will.
 
 
 
@@ -111,19 +111,22 @@ paths:
     get:
       tags:
         - Billing
-      summary: Get a billing period's statement as a sum
+      summary: Get a billing period's statement
       description: >
-        Returns a billing period's statement as a sum: `meteredCostCents`, the
-        period's usage at the account's rates with a breakdown by meter;
-        `adjustments`, the lines the plan applies (the included credits taken
-        off, the base price added); and `billedCostCents`, what they come to,
-        which is what the period invoices or would if it ended now. Also the
-        account's standing on the plan's credit pool and, for the current
-        period, a projection to its end at the recent daily pace. A past
-        period's lines are read from the invoices issued for it. The only
-        billing route where the plan's base price and included credits enter.
-        Money is in integer cents. On a plan that prices no usage, `priced` is
-        false and the amounts are zero.
+        Returns a billing period's statement as billing itself states it:
+        `lines`, each line invoiced for the period or previewed for its end (a
+        fixed fee, a meter's usage billed past its grants, a credit taken off,
+        anything else under its own name), and `billedCost`, their sum, which is
+        what the period invoices or would if it ended now. On the current period
+        also `credits`, the grants the account still draws on, and a projection
+        to the period end at the recent daily pace. Nothing here is derived from
+        the plan's terms: a plan billing can express, this route reports. Money
+        is in dollars to the cent, before tax. A line is before discounts, as
+        billing reports it, and what a reward takes off follows as an `other`
+        line named `Discount`: off each line previewed for the period end, and
+        off each invoice as a whole (its total under its lines' sum), on the
+        span of the invoice's fixed fee when it has one, else of its first line
+        on the period. So the sum is what the period invoiced, or will.
       operationId: getBillingSummary
       parameters:
         - $ref: '#/components/parameters/SummaryPeriod'
@@ -154,10 +157,9 @@ components:
       description: >
         Which billing period: `current` (the default), or a YYYY-MM-DD date
         (UTC) inside a past period that has been invoiced; the day a period
-        starts on selects it. A past period is read whole from the invoices
-        issued for it, named in `invoices`: its metered quantities and cost as
-        billed, the included credits taken off, the base price, and any other
-        line under its own name.
+        starts on selects it. A past period's lines are read whole from the
+        invoices issued for it, named in `invoices`, under the plan they were
+        issued for, whatever the account is on now.
       schema:
         type: string
         default: current
@@ -176,21 +178,13 @@ components:
     BillingSummary:
       type: object
       required:
-        - priced
         - currency
         - billingPeriod
         - plan
-        - meteredCostCents
-        - meteredCostBreakdown
-        - adjustments
-        - billedCostCents
+        - lines
+        - billedCost
+        - credits
       properties:
-        priced:
-          type: boolean
-          description: >-
-            False when the plan prices no usage; the quantities are still
-            reported, the amounts are zero, and `credit` and `projected` are
-            absent.
         currency:
           type: string
         billingPeriod:
@@ -201,54 +195,47 @@ components:
             - $ref: '#/components/schemas/BillingPeriod'
         plan:
           $ref: '#/components/schemas/BillingSummaryPlan'
-        credit:
-          description: >
-            Billing's own standing on the plan's credit pool, in credits, on the
-            current period only (a past period's is not kept; its `adjustments`
-            show the credits drawn). `used` equals `meteredCostCents` at the
-            overage price unless a usage report arrived after a period boundary,
-            which billing credits to the period it arrived in.
-          allOf:
-            - $ref: '#/components/schemas/BillingCreditStanding'
-        meteredCostCents:
-          type: integer
-          format: int64
-          description: >-
-            The period's usage at the account's rates, before any adjustment, in
-            integer cents; the sum of `meteredCostBreakdown`. On a past period,
-            as its invoice billed it.
-        meteredCostBreakdown:
-          type: object
-          description: >-
-            The metered cost by meter, with quantities, keyed by feature id.
-            Sums to `meteredCostCents`.
-          additionalProperties:
-            $ref: '#/components/schemas/BillingFeatureCost'
-        adjustments:
+        lines:
           type: array
-          description: >-
-            The lines between `meteredCostCents` and `billedCostCents`, which
-            sum to their difference.
+          description: >
+            The statement's lines, oldest invoice first, then the lines
+            previewed for the period end: on the current period, what was billed
+            as it opened (the base price, a proration) and what billing will
+            bill as it closes (the usage past the grants, the credits taken
+            off); on a past period, everything the invoices issued for it carry.
+            Empty on a plan that bills nothing.
           items:
-            $ref: '#/components/schemas/BillingAdjustment'
-        billedCostCents:
-          type: integer
-          format: int64
+            $ref: '#/components/schemas/BillingLine'
+        billedCost:
+          type: number
           description: >-
-            What the period invoices, or would if it ended now;
-            `meteredCostCents` plus the adjustments, to the cent.
+            What the period invoices, or would if it ended now; the lines' sum,
+            to the cent.
+        credits:
+          type: array
+          description: >
+            The grants the account still draws on, on the current period only:
+            each with something left or that will refill. A spent one-time grant
+            and an expired one are not listed; a past period lists none (its
+            `credit` lines show the draw). This is a grant's standing, not a
+            charge: a `credit` line in `lines` is what a grant took off this
+            period's bill, in money, and the two need not pair up. A grant
+            nothing has drawn from yet has no line; an included quantity (tool
+            calls, disks) is spent without one, since billing invoices only the
+            usage past it; and several grants on one feature draw as one line.
+          items:
+            $ref: '#/components/schemas/BillingCreditGrant'
         projected:
           description: >-
-            The period end at the recent daily pace; absent for a past period or
-            without an elapsed day of usage.
+            The period end at the recent daily pace; absent for a past period, a
+            plan that prices no usage, or without an elapsed day of usage.
           allOf:
             - $ref: '#/components/schemas/BillingSummaryProjection'
         invoices:
           type: array
           description: >-
-            On a past period, the invoices its lines were read from, oldest
-            first; the base price is billed as a period starts and the usage as
-            it ends. Absent on the current period, which is not invoiced yet.
+            The invoices the lines with an `invoiceId` are on, oldest first.
+            Absent when nothing is invoiced for the period yet.
           items:
             $ref: '#/components/schemas/BillingIssuedInvoice'
     ErrorResponse:
@@ -284,120 +271,135 @@ components:
       type: object
       required:
         - id
-        - basePriceCents
-        - includedCredits
-        - overagePricePerCreditCents
+        - name
       properties:
         id:
           type: string
           description: The plan id, such as `enterprise`.
-        basePriceCents:
-          type: integer
-          format: int64
-          description: The recurring fee per billing period, in integer cents.
-        includedCredits:
-          type: number
-          description: Credits the plan grants each period.
-        overagePricePerCreditCents:
-          type: integer
-          format: int64
-          description: What each credit past the granted ones costs, in integer cents.
-    BillingCreditStanding:
-      type: object
-      required:
-        - granted
-        - used
-        - remaining
-      properties:
-        granted:
-          type: number
-          description: Credits the period grants.
-        used:
-          type: number
-          description: Credits drawn so far, rounded to two decimals.
-        remaining:
-          type: number
-          description: Credits left before overage, rounded to two decimals.
-    BillingFeatureCost:
-      type: object
-      required:
-        - quantity
-        - unit
-        - costCents
-      properties:
-        quantity:
-          type: number
-          description: In the meter's own unit.
-        unit:
+        name:
           type: string
-        costCents:
-          type: integer
-          format: int64
-          description: Quantity at the account's rate, in integer cents.
-    BillingAdjustment:
+          description: The plan's name as billing shows it.
+    BillingLine:
       type: object
+      description: >-
+        One line of the period's statement, as billing invoiced it or previews
+        it.
       required:
         - type
         - name
-        - amountCents
+        - start
+        - end
+        - amount
       properties:
         type:
           type: string
           enum:
-            - included_credits
-            - base_price
+            - fixed
+            - usage
+            - credit
             - other
+          description: >
+            The key to branch on. `fixed` is a charge over the whole period (the
+            plan's base price; an item paid for up front per period, such as a
+            block of sandboxes, on its feature with its quantity); `usage` is a
+            meter's usage billed past its grants, with its quantity; `credit` is
+            a credit taken off, on the feature it draws, in money (what is left
+            of the grant is in `credits`); `other` is anything else billed
+            inside the period, such as a proration, a one-off purchase or a
+            reward (`Discount`), carried with its own `name`.
+        featureId:
+          type: string
           description: >-
-            Which plan term the line applies; the key to branch on. `other` is a
-            line the processor billed on a past period that is neither, such as
-            a proration, carried with its own `name`.
+            On a `usage` or `credit` line, and a `fixed` line for an item paid
+            up front, the feature it is on.
         name:
           type: string
-          description: The line's label, such as `Included credits` or `Base price`.
-        amountCents:
-          type: integer
-          format: int64
-          description: In integer cents; negative for a discount.
-    BillingSummaryProjection:
-      type: object
-      required:
-        - meteredCostCents
-        - billedCostCents
-        - dailyRateCents
-        - paceStart
-        - paceEnd
-        - daysRemaining
-      properties:
-        meteredCostCents:
+          description: The line's label as billing wrote it.
+        quantity:
+          type: number
+          description: On a line with a `featureId`, the quantity billed, in `unit`.
+        unit:
+          type: string
+          description: The quantity's unit, such as vCPU-hours or USD.
+        start:
           type: integer
           format: int64
           description: >-
-            Usage at the account's rates the period is projected to reach, in
-            integer cents.
-        billedCostCents:
-          type: integer
-          format: int64
-          description: What that usage would invoice, in integer cents.
-        dailyRateCents:
-          type: integer
-          format: int64
-          description: >-
-            The pace the projection extends, in integer cents per day;
-            `meteredCostCents` so far plus `dailyRateCents` × `daysRemaining`.
-        paceStart:
-          type: integer
-          format: int64
-          description: >-
-            Unix timestamp in seconds; the pace is the mean over the elapsed UTC
-            days from here to `paceEnd`, the last ones before now inside the
-            period.
-        paceEnd:
+            Unix timestamp in seconds; the span the line covers. A line is on
+            the period its span ends in, or for an item billed over several
+            periods (a yearly add-on) the period it starts in, and on no other.
+        end:
           type: integer
           format: int64
           description: Unix timestamp in seconds, exclusive.
-        daysRemaining:
+        amount:
           type: number
-          description: Days from now to the period end.
+          description: In dollars to the cent; negative for a credit.
+        invoiceId:
+          type: string
+          description: >-
+            The invoice the line is on, one of `invoices`; absent for a line
+            previewed for the period end and not invoiced yet.
+    BillingCreditGrant:
+      type: object
+      description: >-
+        One grant the account draws before it is billed, described by when it
+        refills or expires rather than by a kind.
+      required:
+        - featureId
+        - name
+        - unit
+        - granted
+        - remaining
+        - resetsAt
+        - expiresAt
+      properties:
+        featureId:
+          type: string
+          description: The feature the grant is on, such as `prepaid_credit`.
+        name:
+          type: string
+          description: The feature's name, such as `Prepaid credit (USD)`.
+        unit:
+          type: string
+          description: The unit the grant is counted in, such as USD or disks.
+        granted:
+          type: number
+          description: What the grant carries, per period for one that refills.
+        remaining:
+          type: number
+          description: What is left on it, rounded to two decimals.
+        resetsAt:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Unix timestamp in seconds when the grant refills; null for a
+            one-time grant.
+        expiresAt:
+          type: integer
+          format: int64
+          nullable: true
+          description: >-
+            Unix timestamp in seconds when the grant lapses; null when it does
+            not.
+    BillingSummaryProjection:
+      type: object
+      required:
+        - billedCost
+        - dailyRate
+      properties:
+        billedCost:
+          type: number
+          description: >-
+            What the period is projected to invoice, in dollars; what is billed
+            so far, plus the usage still to come once it has drawn what is left
+            of each grant.
+        dailyRate:
+          type: number
+          description: >-
+            The pace the projection extends, in dollars of usage per day; the
+            mean over the last three elapsed UTC days inside the period.
     BillingIssuedInvoice:
       type: object
       required:
@@ -408,7 +410,16 @@ components:
           type: string
         status:
           type: string
-          description: open, paid or uncollectible.
+          enum:
+            - draft
+            - open
+            - paid
+            - uncollectible
+          description: >-
+            The invoice's status with the billing processor. `draft` is a
+            renewal the processor has not finalized yet, for about an hour after
+            the period rolls; it already carries every line it will bill. Voided
+            invoices are not listed.
         hostedInvoiceUrl:
           type: string
           description: The invoice as the billing processor hosts it.

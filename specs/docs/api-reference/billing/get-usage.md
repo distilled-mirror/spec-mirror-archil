@@ -4,7 +4,7 @@
 
 # Get Usage
 
-> Returns what the account's meters recorded over a window, for the window as a whole and per interval, in each meter's own unit (vCPU-hours, GiB-hours, GiB-months, calls) with no prices applied. Usage reaches billing once per reporter interval from every region, so an interval's figures can still grow for a few minutes after it ends, longer if a region's reporter is behind. The default window is the seven days (hourly: 24 hours) up to now; a window may be at most 31 days, and is widened to whole intervals.
+> Returns what the account's meters recorded over a window, for the window as a whole and per interval, in each meter's own unit (such as vCPU-hours, GiB-hours, GiB-months or calls), and what that usage comes to at the account's rates, per meter and in total, before any grant and fixed fee: the cost of what was used, not what will be invoiced, which `/api/billing/summary` reports. The meters are the catalog's metered features, so a meter added there is reported from then on. A meter's rate is the price of the plan item its usage is billed from: the meter's own item, or the credit system whose rate card names it, at the plan's own prices and overrides; a meter the plan does not price has a zero rate, and a tiered item is priced at its first tier. Usage reaches billing once per reporter interval from every region, so an interval's figures can still grow for a few minutes after it ends, longer if a region's reporter is behind. The default window is the seven days (hourly: 24 hours) up to now; a window may be at most 31 days, and is widened to whole intervals. Money is in dollars, to the cent.
 
 
 
@@ -111,16 +111,24 @@ paths:
     get:
       tags:
         - Billing
-      summary: Get metered usage over a window
+      summary: Get metered usage and its cost over a window
       description: >
         Returns what the account's meters recorded over a window, for the window
-        as a whole and per interval, in each meter's own unit (vCPU-hours,
-        GiB-hours, GiB-months, calls) with no prices applied. Usage reaches
+        as a whole and per interval, in each meter's own unit (such as
+        vCPU-hours, GiB-hours, GiB-months or calls), and what that usage comes
+        to at the account's rates, per meter and in total, before any grant and
+        fixed fee: the cost of what was used, not what will be invoiced, which
+        `/api/billing/summary` reports. The meters are the catalog's metered
+        features, so a meter added there is reported from then on. A meter's
+        rate is the price of the plan item its usage is billed from: the meter's
+        own item, or the credit system whose rate card names it, at the plan's
+        own prices and overrides; a meter the plan does not price has a zero
+        rate, and a tiered item is priced at its first tier. Usage reaches
         billing once per reporter interval from every region, so an interval's
         figures can still grow for a few minutes after it ends, longer if a
         region's reporter is behind. The default window is the seven days
         (hourly: 24 hours) up to now; a window may be at most 31 days, and is
-        widened to whole intervals.
+        widened to whole intervals. Money is in dollars, to the cent.
       operationId: getBillingUsage
       parameters:
         - $ref: '#/components/parameters/UsageStart'
@@ -130,7 +138,7 @@ paths:
         - $ref: '#/components/parameters/UsageTimezone'
       responses:
         '200':
-          description: Usage over the window and per interval
+          description: Usage and its cost over the window and per interval
           content:
             application/json:
               schema:
@@ -216,6 +224,8 @@ components:
       required:
         - granularity
         - timezone
+        - currency
+        - ratesPerUnit
         - window
         - intervals
       properties:
@@ -226,6 +236,16 @@ components:
             - 1h
         timezone:
           type: string
+        currency:
+          type: string
+        ratesPerUnit:
+          type: object
+          description: >-
+            Cost of one unit of each meter, in dollars per unit as a decimal (a
+            rate can be well below a cent), keyed by feature id; zero for a
+            meter the plan does not price.
+          additionalProperties:
+            type: number
         window:
           $ref: '#/components/schemas/BillingUsageWindow'
         intervals:
@@ -235,6 +255,12 @@ components:
             after now are left out.
           items:
             $ref: '#/components/schemas/BillingUsageInterval'
+        billingPeriod:
+          description: >-
+            The current billing period, which `/api/billing/summary` sums;
+            absent on a plan without one.
+          allOf:
+            - $ref: '#/components/schemas/BillingPeriod'
     ErrorResponse:
       type: object
       required:
@@ -252,10 +278,16 @@ components:
           description: Stable machine-readable error code.
     BillingUsageWindow:
       type: object
-      description: The window as a whole, the summary the intervals break down.
+      description: >-
+        The window as a whole, the summary the intervals break down. Its
+        quantities are the intervals' sums; its costs are priced over the whole
+        span and rounded once per meter, so they are the same at any
+        granularity, while the intervals, each rounded on its own, can add up to
+        a little less.
       required:
         - start
         - end
+        - cost
         - features
       properties:
         start:
@@ -266,11 +298,14 @@ components:
           type: integer
           format: int64
           description: Unix timestamp in seconds, exclusive.
+        cost:
+          type: number
+          description: >-
+            Usage over the window at the account's rates, in dollars to the
+            cent.
         features:
           type: object
-          description: >-
-            Quantity per meter over the window, keyed by feature id; the
-            intervals' sums.
+          description: Quantity and cost per meter over the window, keyed by feature id.
           additionalProperties:
             $ref: '#/components/schemas/BillingUsageQuantity'
     BillingUsageInterval:
@@ -278,6 +313,7 @@ components:
       required:
         - start
         - end
+        - cost
         - features
       properties:
         start:
@@ -288,23 +324,50 @@ components:
           type: integer
           format: int64
           description: Unix timestamp in seconds, exclusive.
+        cost:
+          type: number
+          description: >-
+            The interval's usage at the account's rates, in dollars to the cent;
+            the sum of `features`.
         features:
           type: object
-          description: Quantity per meter in the interval, keyed by feature id.
+          description: Quantity and cost per meter in the interval, keyed by feature id.
           additionalProperties:
             $ref: '#/components/schemas/BillingUsageQuantity'
+    BillingPeriod:
+      type: object
+      required:
+        - start
+        - end
+      properties:
+        start:
+          type: integer
+          format: int64
+          description: Unix timestamp in seconds.
+        end:
+          type: integer
+          format: int64
+          description: Unix timestamp in seconds.
     BillingUsageQuantity:
       type: object
       required:
         - quantity
         - unit
+        - cost
       properties:
         quantity:
           type: number
           description: In the meter's own unit.
         unit:
           type: string
-          description: vCPU-hours, GiB-hours, GiB-months or calls.
+          description: >-
+            The meter's unit, such as vCPU-hours, GiB-hours, GiB-months or
+            calls.
+        cost:
+          type: number
+          description: >-
+            Quantity at the account's rate, in dollars to the cent; zero for a
+            meter the plan does not price.
   responses:
     ValidationError:
       description: Validation error
