@@ -329,6 +329,7 @@ components:
           enum:
             - token
             - awssts
+            - s3
         principal:
           type: string
           deprecated: true
@@ -346,16 +347,51 @@ components:
             Only present in the response when the server generates the token
             (i.e. principal was not provided). This value is shown exactly once
             and cannot be retrieved again.
+        s3AccessKeyId:
+          type: string
+          description: The S3 access key ID. Only present for s3 users.
+        s3SecretKey:
+          type: string
+          description: >
+            The generated S3 secret access key. Only present in the creation
+            response for s3 users. This value is shown exactly once and cannot
+            be retrieved again.
         identifier:
           type: string
           description: >
             Stable identifier for this user, returned in creation and list
             responses. Use this value with DELETE
             /api/disks/{id}/users/{type}?identifier={identifier} to remove the
-            user. For awssts users, this is the IAM ARN.
+            user. For awssts users, this is the IAM ARN; for s3 users, the
+            access key ID.
         createdAt:
           type: string
           format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+          description: When the user expires. Absent for users without an expiry.
+        oneUse:
+          type: boolean
+          description: Whether the user can be used for only one mount.
+        consumedAt:
+          type: string
+          format: date-time
+          description: |
+            When a one-use user was consumed by its mount. Absent until then.
+        readOnly:
+          type: boolean
+          description: Whether the user grants read-only access.
+        status:
+          type: string
+          enum:
+            - active
+            - expired
+            - consumed
+            - in_use
+          description: >
+            Current lifecycle status. `in_use` means a one-use user is being
+            consumed by a mount that is still in progress.
     MountConfigResponse:
       type: object
       description: Mount configuration details (secrets omitted)

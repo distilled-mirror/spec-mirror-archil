@@ -124,12 +124,14 @@ paths:
             enum:
               - token
               - awssts
+              - s3
         - name: identifier
           in: query
           required: false
           description: >
             Identifier of the user to remove, as returned in the creation or
-            list response. For awssts users, this is the IAM ARN.
+            list response. For awssts users, this is the IAM ARN; for s3 users,
+            the access key ID.
           schema:
             type: string
         - name: principal

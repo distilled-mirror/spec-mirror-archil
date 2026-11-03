@@ -298,7 +298,7 @@
       "post": {
         "operationId": "addDiskUser",
         "summary": "Add user to disk",
-        "description": "Adds an authorized user to a disk. Users can authenticate via:\n- **token**: A shared token with a nickname and 4-character suffix\n- **awssts**: AWS STS role assumption with an IAM principal ARN\n",
+        "description": "Adds an authorized user to a disk. Users can authenticate via:\n- **token**: A shared token with a nickname and 4-character suffix\n- **awssts**: AWS STS role assumption with an IAM principal ARN\n- **s3**: An access key pair for the disk's\n  [S3 API](/protocols/s3-api). The server generates both keys and\n  returns the secret key only in this response. The keys reach the\n  whole disk, read-write unless `readOnly` is set, so keep them on\n  your server and give browsers and other untrusted clients\n  presigned URLs instead.\n",
         "tags": [
           "Disk Users"
         ],
@@ -361,7 +361,8 @@
               "type": "string",
               "enum": [
                 "token",
-                "awssts"
+                "awssts",
+                "s3"
               ]
             }
           },
@@ -369,7 +370,7 @@
             "name": "identifier",
             "in": "query",
             "required": false,
-            "description": "Identifier of the user to remove, as returned in the creation or list response. For awssts users, this is the IAM ARN.\n",
+            "description": "Identifier of the user to remove, as returned in the creation or list response. For awssts users, this is the IAM ARN; for s3 users, the access key ID.\n",
             "schema": {
               "type": "string"
             }
@@ -3828,6 +3829,23 @@
             "maxLength": 4,
             "deprecated": true,
             "description": "Deprecated. Last 4 characters of the token. Required when principal is provided; ignored when the server generates the token.\n"
+          },
+          "ttl": {
+            "type": "string",
+            "description": "Optional time-to-live as a Go duration string (e.g. \"1h\", \"30m\", \"24h\"). Maximum 365 days (\"8760h\"). Mutually exclusive with expiresAt.\n"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Optional absolute expiration time as an RFC3339 timestamp (e.g. \"2026-07-15T00:00:00Z\"). Must be in the future. Mutually exclusive with ttl.\n"
+          },
+          "oneUse": {
+            "type": "boolean",
+            "description": "When true, the token can be used for only one mount. Later mount attempts with it are rejected.\n"
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "When true, mounts made with this token reject writes with EROFS.\n"
           }
         }
       },
@@ -3848,6 +3866,54 @@
             "type": "string",
             "description": "IAM principal ARN",
             "maxLength": 2048
+          },
+          "ttl": {
+            "type": "string",
+            "description": "Optional time-to-live as a Go duration string (e.g. \"1h\", \"30m\", \"24h\"). Maximum 365 days (\"8760h\"). Mutually exclusive with expiresAt.\n"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Optional absolute expiration time as an RFC3339 timestamp (e.g. \"2026-07-15T00:00:00Z\"). Must be in the future. Mutually exclusive with ttl.\n"
+          },
+          "oneUse": {
+            "type": "boolean",
+            "description": "When true, the credential can be used for only one mount.\n"
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "When true, mounts made with this credential reject writes with EROFS.\n"
+          }
+        }
+      },
+      "S3User": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "s3"
+            ]
+          },
+          "nickname": {
+            "type": "string",
+            "maxLength": 255
+          },
+          "ttl": {
+            "type": "string",
+            "description": "Optional time-to-live as a Go duration string (e.g. \"1h\", \"30m\"). Maximum 365 days (\"8760h\"). Requests signed with an expired key, including presigned URLs, are rejected. Mutually exclusive with expiresAt.\n"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Optional absolute expiration time as an RFC3339 timestamp. Must be in the future. Mutually exclusive with ttl.\n"
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "When true, the keys can only make GET and HEAD requests. Writes, deletes, and multipart uploads return AccessDenied.\n"
           }
         }
       },
@@ -3858,13 +3924,17 @@
           },
           {
             "$ref": "#/components/schemas/AwsStsUser"
+          },
+          {
+            "$ref": "#/components/schemas/S3User"
           }
         ],
         "discriminator": {
           "propertyName": "type",
           "mapping": {
             "token": "#/components/schemas/TokenUser",
-            "awssts": "#/components/schemas/AwsStsUser"
+            "awssts": "#/components/schemas/AwsStsUser",
+            "s3": "#/components/schemas/S3User"
           }
         }
       },
@@ -4081,7 +4151,8 @@
             "type": "string",
             "enum": [
               "token",
-              "awssts"
+              "awssts",
+              "s3"
             ]
           },
           "principal": {
@@ -4099,13 +4170,49 @@
             "type": "string",
             "description": "The generated disk token (used by clients when mounting the disk). Only present in the response when the server generates the token (i.e. principal was not provided). This value is shown exactly once and cannot be retrieved again.\n"
           },
+          "s3AccessKeyId": {
+            "type": "string",
+            "description": "The S3 access key ID. Only present for s3 users."
+          },
+          "s3SecretKey": {
+            "type": "string",
+            "description": "The generated S3 secret access key. Only present in the creation response for s3 users. This value is shown exactly once and cannot be retrieved again.\n"
+          },
           "identifier": {
             "type": "string",
-            "description": "Stable identifier for this user, returned in creation and list responses. Use this value with DELETE /api/disks/{id}/users/{type}?identifier={identifier} to remove the user. For awssts users, this is the IAM ARN.\n"
+            "description": "Stable identifier for this user, returned in creation and list responses. Use this value with DELETE /api/disks/{id}/users/{type}?identifier={identifier} to remove the user. For awssts users, this is the IAM ARN; for s3 users, the access key ID.\n"
           },
           "createdAt": {
             "type": "string",
             "format": "date-time"
+          },
+          "expiresAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the user expires. Absent for users without an expiry."
+          },
+          "oneUse": {
+            "type": "boolean",
+            "description": "Whether the user can be used for only one mount."
+          },
+          "consumedAt": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When a one-use user was consumed by its mount. Absent until then.\n"
+          },
+          "readOnly": {
+            "type": "boolean",
+            "description": "Whether the user grants read-only access."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "expired",
+              "consumed",
+              "in_use"
+            ],
+            "description": "Current lifecycle status. `in_use` means a one-use user is being consumed by a mount that is still in progress.\n"
           }
         }
       },

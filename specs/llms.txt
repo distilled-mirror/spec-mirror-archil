@@ -5,6 +5,7 @@
 - [Mount on Linux](https://docs.archil.com/mounting/linux.md)
 - [Mount on macOS](https://docs.archil.com/mounting/macos.md)
 - [Mount in a container](https://docs.archil.com/mounting/containers.md)
+- [Docker and Docker Compose](https://docs.archil.com/mounting/docker-compose.md): Give Docker containers persistent, shared storage with an Archil disk, using a bind mount from the host or a mount inside the container.
 - [Serverless execution](https://docs.archil.com/compute/serverless-execution.md): Run bash commands directly on an Archil file system.
 - [Persistent sandboxes](https://docs.archil.com/compute/sandboxes/introduction.md): Run untrusted, AI-generated code in isolated Firecracker microVMs with persistent disks.
 - [Sandbox images](https://docs.archil.com/compute/sandboxes/images.md): Start sandboxes from public or private OCI images and reuse prepared images.
@@ -79,7 +80,7 @@
 - [Stop Sandbox](https://docs.archil.com/api-reference/sandboxes/stop-sandbox.md): Gracefully shuts down the guest, then checkpoints its disk before entering `stopped`. The sandbox and any forks from it cold-boot from disk state. Stopping a paused sandbox reuses its existing disk checkpoint. In-flight processes receive the guest shutdown signal.
 - [Build Image](https://docs.archil.com/api-reference/images/build-image.md): Builds an OCI image for use by sandboxes. Poll [Get Image](/api-reference/images/get-image) until it is `ready`, then pass its `image_id` when creating a sandbox.
 - [Get Image](https://docs.archil.com/api-reference/images/get-image.md): Returns the image's build status and latest successful digest, if available. Failed builds include a `failure_reason`. Use [Build Image](/api-reference/images/build-image) (`POST /api/images`) to retry interrupted builds.
-- [Add Disk User](https://docs.archil.com/api-reference/disk-users/add-user.md): Adds an authorized user to a disk. Users can authenticate via: - **token**: A shared token with a nickname and 4-character suffix - **awssts**: AWS STS role assumption with an IAM principal ARN
+- [Add Disk User](https://docs.archil.com/api-reference/disk-users/add-user.md): Adds an authorized user to a disk. Users can authenticate via: - **token**: A shared token with a nickname and 4-character suffix - **awssts**: AWS STS role assumption with an IAM principal ARN - **s3**: An access key pair for the disk's   [S3 API](/protocols/s3-api). The server generates both keys…
 - [Remove Disk User](https://docs.archil.com/api-reference/disk-users/remove-user.md): Removes an authorized user from a disk.
 - [List API Tokens](https://docs.archil.com/api-reference/tokens/list-tokens.md): Returns all API tokens for the authenticated account.
 - [Create API Token](https://docs.archil.com/api-reference/tokens/create-token.md): Creates a new API token for programmatic access. The full token value is only returned once at creation time.
