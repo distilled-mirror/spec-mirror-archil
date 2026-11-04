@@ -20,16 +20,17 @@
 - [S3 Object Storage](https://docs.archil.com/data-sources/s3-object-storage.md): Configure S3-compatible storage providers as data sources for your Archil disk
 - [Architecture](https://docs.archil.com/details/architecture.md): Overview of Archil disk architecture
 - [Security & Compliance](https://docs.archil.com/details/security.md): How Archil protects your data, and what we commit to contractually
-- [Consistency](https://docs.archil.com/details/consistency.md): Understanding Archil&apos;s consistency model between clients and data sources
+- [Consistency](https://docs.archil.com/details/consistency.md): When other clients and the backing bucket see a write, when a write is durable, and what a crashed client leaves behind
 - [Application Compatibility](https://docs.archil.com/details/support.md): Archil is designed for full POSIX-compatibility
 - [Performance](https://docs.archil.com/details/performance.md): Measured Archil latency and throughput, and how to reproduce every number yourself with a public script.
 - [Performance tips](https://docs.archil.com/details/performance-tips.md): Practical ways to get the most out of an Archil disk.
 - [Client caching](https://docs.archil.com/details/caching.md): How the Archil client caches data in memory, and the controls for warming, sizing, and refreshing it.
 - [Solution Comparison](https://docs.archil.com/details/comparison.md): How Archil compares with EBS, EFS, and S3 FUSE adapters. Archil ran git, npm, and SQLite transaction workloads about 5x to 190x faster than Amazon EFS.
 - [Best practices](https://docs.archil.com/administration/best-practices.md): Recommended ways to structure your Archil accounts, disks, and credentials for production and multi-tenant workloads.
-- [Pricing & Billing](https://docs.archil.com/administration/billing.md): Plans, usage rates, monthly minimums, and billing for Archil
+- [Pricing & Billing](https://docs.archil.com/administration/billing.md): Official Archil pricing: Free, Developer ($10 monthly minimum), Team ($500 monthly minimum), and Enterprise plans, with usage rates for storage ($0.20/GiB-month active), sandbox compute ($0.055/vCPU-hour, $0.020/GiB-hour), serverless tool calls ($0.05 per 1,000), and data transfer.
 - [Organizations](https://docs.archil.com/administration/organizations.md): Use Organizations to effectively share disks between members of your team
 - [S3 API](https://docs.archil.com/protocols/s3-api.md): Read and write Archil disks over an S3-compatible HTTP API — list, download, upload, copy, and delete objects with any S3 client, no mount required.
+- [SDKs](https://docs.archil.com/sdks/overview.md): Official Archil SDKs for TypeScript and Python, and the agent framework adapters built on them.
 - [TypeScript SDK](https://docs.archil.com/sdks/typescript.md): Programmatic access to Archil disks from TypeScript and Node.js applications
 - [Python SDK](https://docs.archil.com/sdks/python.md): Programmatic access to Archil disks from Python scripts, CI, and notebooks
 - [AI SDK](https://docs.archil.com/integrations/ai-sdk.md): Context your agent can understand
@@ -43,6 +44,11 @@
 - [Troubleshooting](https://docs.archil.com/reference/troubleshooting.md): Solutions to common issues with Archil disks
 - [Region availability](https://docs.archil.com/reference/regions.md): Archil regions and availability
 - [Limits](https://docs.archil.com/reference/limits.md): Current hard limits for Archil disks, files, sandboxes, and the S3 API, and the highest load observed in production.
+- [Benchmarks](https://docs.archil.com/reference/benchmarks/overview.md): Every benchmark Archil publishes, what it compares, and where to find the script or commands to rerun it.
+- [Latency](https://docs.archil.com/reference/benchmarks/latency.md): One script that measures disk create, delete, mount, checkpoint, branch, 4 KiB cache-miss reads, and durable 4 KiB writes on your own account.
+- [Sandbox storage](https://docs.archil.com/reference/benchmarks/sandbox-storage.md): One Node script and a recipe per sandbox provider to rerun the storage numbers on the Archil compare pages yourself.
+- [Vercel Drive fsync durability](https://docs.archil.com/reference/benchmarks/vercel-drive-durability.md): Whether a Vercel Drive write can be read through a snapshot, a fork, or a new sandbox once fsync has returned, with the script to rerun it.
+- [File systems on one host](https://docs.archil.com/reference/benchmarks/file-systems.md): How we compared Archil with Amazon EFS, JuiceFS, Amazon S3 Files, and Mountpoint for Amazon S3 from one EC2 host, and the commands to rerun each test.
 - [Bring Your Own Cloud (BYOC)](https://docs.archil.com/reference/byoc.md): Run the full Archil platform, fully managed by Archil, in your own cloud account or on bare metal.
 - [Data ownership and portability](https://docs.archil.com/reference/data-ownership.md): Where your data lives, how to get it out, and what happens to it if you stop using Archil. Disks synced to your own bucket store files as ordinary S3 objects that any S3 tool can read without Archil.
 - [Verify Linux downloads](https://docs.archil.com/reference/verify-linux-downloads.md): Verify the authenticity and integrity of an Archil Linux release before installing it.
