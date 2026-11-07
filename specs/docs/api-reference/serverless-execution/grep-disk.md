@@ -23,9 +23,15 @@ searched. With `recursive: true` subdirectories are walked
 breadth-first and grep workers are dispatched as soon as each level
 finishes listing — listing and matching overlap.
 
-The matches returned when stopping early on `maxResults` are a sample
-of whichever workers reported first, not the lexicographically first
-N. The response surfaces `stoppedReason` so callers can distinguish
+Matching runs on ripgrep. Narrow the files searched with `globs`,
+`types`, and `typesNot`; change matching with `ignoreCase` and
+`multiline`; and ask for surrounding lines with `contextBefore` and
+`contextAfter`, which adds `groups` to the result.
+
+The matches returned when stopping early on `maxResults`, or on the
+32 MiB limit on match and context text, are a sample of whichever
+workers reported first, not the lexicographically first N. The
+response surfaces `stoppedReason` so callers can distinguish
 completion from early termination.
 
 
@@ -154,9 +160,15 @@ paths:
         breadth-first and grep workers are dispatched as soon as each level
         finishes listing — listing and matching overlap.
 
-        The matches returned when stopping early on `maxResults` are a sample
-        of whichever workers reported first, not the lexicographically first
-        N. The response surfaces `stoppedReason` so callers can distinguish
+        Matching runs on ripgrep. Narrow the files searched with `globs`,
+        `types`, and `typesNot`; change matching with `ignoreCase` and
+        `multiline`; and ask for surrounding lines with `contextBefore` and
+        `contextAfter`, which adds `groups` to the result.
+
+        The matches returned when stopping early on `maxResults`, or on the
+        32 MiB limit on match and context text, are a sample of whichever
+        workers reported first, not the lexicographically first N. The
+        response surfaces `stoppedReason` so callers can distinguish
         completion from early termination.
       operationId: grepDisk
       parameters:
@@ -208,7 +220,13 @@ components:
           example: data/logs
         pattern:
           type: string
-          description: Extended regular expression (passed to `grep -E`)
+          description: >
+            Regular expression in [ripgrep
+            syntax](https://docs.rs/regex/latest/regex/#syntax).
+
+            A newline separates alternative patterns, except with `multiline`,
+
+            where it matches a line break.
           example: ERROR|FATAL
         recursive:
           type: boolean
@@ -242,6 +260,81 @@ components:
             Stop scanning once the aggregator has this many matches.
             Returned matches are a sample of whichever workers reported
             first, not the lexicographically first N.
+        ignoreCase:
+          type: boolean
+          description: Match the pattern case-insensitively (`rg -i`). Defaults to false.
+        multiline:
+          type: boolean
+          description: |
+            Let a match span lines (`rg -U`): `\n` or a newline character in
+            the pattern matches a line break, and `.` matches one only after
+            `(?s)`. Files with Windows line endings need `\r?\n` instead of
+            `\n`. Matches on adjacent lines come back as one match covering
+            all of them, with `endLine` set, and count once toward
+            `maxResults`. A file with at least `maxResults` matching lines
+            stops the request with `max_results`, even when merging leaves
+            fewer matches. Defaults to false.
+        globs:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            minLength: 1
+            maxLength: 1024
+          description: |
+            Path globs with ripgrep's `-g` rules, matched against paths
+            relative to `directory`. A leading `!` excludes. A glob without a
+            `/` matches a file or directory name at any depth; a glob with a
+            `/` matches the whole relative path, and a leading `/` anchors it
+            to `directory`. A trailing `/` matches only directories, so use
+            `dir/**` to search the files under `dir`. When several globs
+            match a path, the last one wins. A directory excluded this way is
+            skipped with everything under it. If any non-`!` glob is given,
+            files that match no glob are skipped. A file a glob matches is
+            searched or skipped regardless of `types` and `typesNot`.
+          example:
+            - '*.log'
+            - '!archive/**'
+        types:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            minLength: 1
+            maxLength: 32
+          description: |
+            Only search files of these types, using ripgrep's default type
+            names (for example `py`, `ts`, `go`, `md`).
+          example:
+            - py
+        typesNot:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            minLength: 1
+            maxLength: 32
+          description: |
+            Skip files of these types, using ripgrep's default type names.
+            Takes precedence over `types`.
+          example:
+            - json
+        contextBefore:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 0
+          description: |
+            Lines of context to return before each match (`rg -B`). When
+            either context field is set, the result includes `groups`.
+        contextAfter:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 0
+          description: |
+            Lines of context to return after each match (`rg -A`). When
+            either context field is set, the result includes `groups`.
     ApiResponse_GrepDisk:
       type: object
       required:
@@ -269,6 +362,18 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/GrepMatch'
+        groups:
+          type: array
+          description: |
+            Matches with their context lines, grouped the way grep prints
+            them. Present only when `contextBefore` or `contextAfter` is set.
+            Holds the same matches as `matches`. When the search stops at
+            `maxResults`, the last group ends up to `contextAfter` lines after
+            its last kept match, and any matches in those lines are shown as
+            context. Each line of a group counts toward the 32 MiB response
+            limit, so large context and `maxResults` multiply it.
+          items:
+            $ref: '#/components/schemas/GrepGroup'
         stoppedReason:
           $ref: '#/components/schemas/GrepStoppedReason'
         filesScanned:
@@ -328,11 +433,36 @@ components:
           example: data/logs/2026-05-03.log
         line:
           type: integer
-          description: 1-based line number where the match occurred.
+          description: |
+            1-based line number where the match occurred. With `multiline`,
+            the match's first line.
           example: 142
+        endLine:
+          type: integer
+          description: With `multiline`, the 1-based number of the match's last line.
         text:
           type: string
-          description: The matching line.
+          description: |
+            The matching line, truncated at 512 KiB, or shorter with context.
+            With `multiline`, every line the match covers, joined by `\n`,
+            each truncated separately.
+    GrepGroup:
+      type: object
+      required:
+        - file
+        - lines
+      description: |
+        A run of consecutive lines from one file, as grep prints it with
+        context: each match with its surrounding lines, with nearby matches
+        merged into one group so every line appears once.
+      properties:
+        file:
+          type: string
+          description: Path to the file (relative to the disk root).
+        lines:
+          type: array
+          items:
+            $ref: '#/components/schemas/GrepGroupLine'
     GrepStoppedReason:
       type: string
       enum:
@@ -345,12 +475,30 @@ components:
         Why the search stopped.
         - `completed`: every file under the directory was scanned successfully.
         - `incomplete`: pipeline ran to its natural end but one or more
-          batches errored (invalid regex, unreadable file, runtime issue).
+          batches errored (invalid regex, unreadable file, runtime issue) or
+          exceeded the 4 MiB output limit.
           Results may be partial or wrong; do not rely on completeness.
-        - `max_results`: hit `maxResults` before scanning everything.
+        - `max_results`: hit `maxResults`, or the response size limit
+          (32 MiB of match and context text), before scanning everything.
         - `deadline`: hit `maxDurationSeconds`.
         - `list_failed`: directory listing failed; partial results
           may be present.
+    GrepGroupLine:
+      type: object
+      required:
+        - line
+        - text
+        - match
+      properties:
+        line:
+          type: integer
+          description: 1-based line number.
+        text:
+          type: string
+          description: The line, truncated like `GrepMatch.text`.
+        match:
+          type: boolean
+          description: True for a matching line, false for a context line.
   responses:
     ValidationError:
       description: Validation error

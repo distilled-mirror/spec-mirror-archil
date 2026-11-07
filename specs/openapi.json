@@ -294,6 +294,104 @@
         }
       }
     },
+    "/api/disks/{id}/prefetch": {
+      "post": {
+        "operationId": "prefetchDisk",
+        "summary": "Prefetch file ranges",
+        "description": "Warms byte ranges of files on a disk into Archil's storage cache, so\nlater reads from any client, serverless exec, or sandbox are served\nwithout going to the backing object storage.\n\nEach range names one file and an optional `offset` and `length`; a\nfile may appear in several ranges. Paths are relative to the disk\nroot. Ranges must name regular files: a directory is found but warms\nnothing, so list a directory's files to warm its contents.\n\nThe response reports one result per range, in request order, and may\nreturn before the data is fully fetched. A path that does not exist\nreports `found: false`. A failed range does not fail the others;\nretry the ranges whose `error` is `retry`. If the disk is not mounted\nanywhere, prefetching loads it.\n\nWarmed data becomes active data and is metered like data your clients\nread.\n",
+        "tags": [
+          "Disks"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "disk:prefetch:{id}"
+            ]
+          },
+          {
+            "SessionTokenAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/DiskId"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrefetchRequest"
+              },
+              "example": {
+                "ranges": [
+                  {
+                    "path": "models/weights.bin"
+                  },
+                  {
+                    "path": "data/2026/events.parquet",
+                    "offset": 0,
+                    "length": 1048576
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Per-range prefetch results",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_Prefetch"
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "results": [
+                      {
+                        "found": true,
+                        "bytesRequested": 4294967296,
+                        "bytesWarmed": 4294967296
+                      },
+                      {
+                        "found": true,
+                        "bytesRequested": 1048576,
+                        "bytesWarmed": 0
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/ValidationError"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "description": "Temporarily unavailable; safe to retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/disks/{id}/users": {
       "post": {
         "operationId": "addDiskUser",
@@ -449,8 +547,28 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "description": "The request is not allowed on the account's plan. `code` is one of:\n\n- `allowance_exhausted`: the plan has used its serverless tool call\n  allowance for the month.\n- `tool_call_size_limit_exceeded`: the exec is larger than the plan\n  allows. The Free plan allows only the default size (2 vCPU,\n  4096 MiB).\n- `network_plan_required`: `network` was set on the Free plan.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The `imageId` image has no finished build yet (`image_not_ready`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -472,7 +590,7 @@
       "post": {
         "operationId": "grepDisk",
         "summary": "Parallel grep over a directory on a disk",
-        "description": "Searches files under a directory on the disk for lines matching a\nregular expression. Listing and matching are fanned out across\nephemeral exec microVMs, so the request finishes within the user's\ntime budget regardless of the size of the directory.\n\nThe user controls search latency and scope with three knobs:\n\n- `maxDurationSeconds` is the wall-clock deadline (capped at 30s).\n- `concurrency` is the maximum number of parallel grep workers.\n  Higher concurrency finishes larger datasets within the deadline,\n  at proportionally more compute.\n- `maxResults` causes the search to short-circuit after the\n  aggregator has collected this many matches.\n\nWith `recursive: false` only files directly under `directory` are\nsearched. With `recursive: true` subdirectories are walked\nbreadth-first and grep workers are dispatched as soon as each level\nfinishes listing — listing and matching overlap.\n\nThe matches returned when stopping early on `maxResults` are a sample\nof whichever workers reported first, not the lexicographically first\nN. The response surfaces `stoppedReason` so callers can distinguish\ncompletion from early termination.\n",
+        "description": "Searches files under a directory on the disk for lines matching a\nregular expression. Listing and matching are fanned out across\nephemeral exec microVMs, so the request finishes within the user's\ntime budget regardless of the size of the directory.\n\nThe user controls search latency and scope with three knobs:\n\n- `maxDurationSeconds` is the wall-clock deadline (capped at 30s).\n- `concurrency` is the maximum number of parallel grep workers.\n  Higher concurrency finishes larger datasets within the deadline,\n  at proportionally more compute.\n- `maxResults` causes the search to short-circuit after the\n  aggregator has collected this many matches.\n\nWith `recursive: false` only files directly under `directory` are\nsearched. With `recursive: true` subdirectories are walked\nbreadth-first and grep workers are dispatched as soon as each level\nfinishes listing — listing and matching overlap.\n\nMatching runs on ripgrep. Narrow the files searched with `globs`,\n`types`, and `typesNot`; change matching with `ignoreCase` and\n`multiline`; and ask for surrounding lines with `contextBefore` and\n`contextAfter`, which adds `groups` to the result.\n\nThe matches returned when stopping early on `maxResults`, or on the\n32 MiB limit on match and context text, are a sample of whichever\nworkers reported first, not the lexicographically first N. The\nresponse surfaces `stoppedReason` so callers can distinguish\ncompletion from early termination.\n",
         "tags": [
           "Serverless Execution"
         ],
@@ -552,8 +670,28 @@
           "401": {
             "$ref": "#/components/responses/Unauthorized"
           },
+          "403": {
+            "description": "The request is not allowed on the account's plan. `code` is one of:\n\n- `allowance_exhausted`: the plan has used its serverless tool call\n  allowance for the month.\n- `tool_call_size_limit_exceeded`: the exec is larger than the plan\n  allows. The Free plan allows only the default size (2 vCPU,\n  4096 MiB).\n- `network_plan_required`: `network` was set on the Free plan.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          },
+          "409": {
+            "description": "The `imageId` image has no finished build yet (`image_not_ready`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -4396,6 +4534,110 @@
           }
         }
       },
+      "PrefetchRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ranges"
+        ],
+        "properties": {
+          "ranges": {
+            "type": "array",
+            "minItems": 1,
+            "description": "Byte ranges to warm. A request may name at most 1000.",
+            "items": {
+              "$ref": "#/components/schemas/PrefetchRange"
+            }
+          }
+        }
+      },
+      "PrefetchRange": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "path"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Path of a regular file, relative to the disk root.",
+            "example": "models/weights.bin"
+          },
+          "offset": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "First byte to warm. Defaults to 0."
+          },
+          "length": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "description": "Bytes to warm from `offset`. Defaults to the end of the file."
+          }
+        }
+      },
+      "ApiResponse_Prefetch": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "type": "object",
+            "required": [
+              "results"
+            ],
+            "properties": {
+              "results": {
+                "type": "array",
+                "description": "One result per requested range, in request order.",
+                "items": {
+                  "$ref": "#/components/schemas/PrefetchRangeResult"
+                }
+              }
+            }
+          }
+        }
+      },
+      "PrefetchRangeResult": {
+        "type": "object",
+        "required": [
+          "found",
+          "bytesRequested",
+          "bytesWarmed"
+        ],
+        "properties": {
+          "found": {
+            "type": "boolean",
+            "description": "Whether the path exists."
+          },
+          "bytesRequested": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Bytes of the range being warmed, including bytes that were already cached.\n"
+          },
+          "bytesWarmed": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Of `bytesRequested`, the bytes fetched (or still being fetched) from object storage. The rest were already cached.\n"
+          },
+          "error": {
+            "type": "string",
+            "enum": [
+              "retry",
+              "failed"
+            ],
+            "description": "Set when this range was not warmed: `retry` for a transient failure worth retrying, `failed` otherwise. Other ranges in the request are unaffected.\n"
+          }
+        }
+      },
       "ExecDiskRequest": {
         "type": "object",
         "required": [
@@ -4406,6 +4648,33 @@
             "type": "string",
             "description": "Shell command to execute inside the microVM",
             "example": "ls -la /mnt/archil"
+          },
+          "baseImage": {
+            "type": "string",
+            "description": "Public Linux OCI image reference to run the command in, such as `python:3.13`. Docker Hub shorthand, tags, and digests are accepted. The first exec with an image waits while Archil prepares it; later execs reuse it. Defaults to Archil's exec image when neither this nor `imageId` is set. Mutually exclusive with `imageId`.",
+            "example": "python:3.13"
+          },
+          "imageId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "An image built with [Build Image](/api-reference/images/build-image), for private images or to prepare a public image ahead of time. The exec runs the image's latest successful build. Mutually exclusive with `baseImage`."
+          },
+          "vcpuCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32,
+            "description": "vCPUs for the command's microVM. Defaults to 2. An exec larger than the default size (2 vCPU, 4096 MiB) bills as that many multiples of a call, by whichever of vCPU and memory is the larger multiple, rounded up. The Free plan allows only the default size.",
+            "example": 4
+          },
+          "memSizeMib": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 65536,
+            "description": "Memory in MiB for the command's microVM. Defaults to 4096. Billed as described for `vcpuCount`.",
+            "example": 8192
+          },
+          "network": {
+            "$ref": "#/components/schemas/ExecNetwork"
           }
         }
       },
@@ -4513,6 +4782,42 @@
             "type": "string",
             "description": "Shell command to execute inside the microVM",
             "example": "ls -la /mnt/archil/data /mnt/archil/logs"
+          },
+          "baseImage": {
+            "type": "string",
+            "description": "Public Linux OCI image reference to run the command in, such as `python:3.13`. Docker Hub shorthand, tags, and digests are accepted. The first exec with an image waits while Archil prepares it; later execs reuse it. Defaults to Archil's exec image when neither this nor `imageId` is set. Mutually exclusive with `imageId`.",
+            "example": "python:3.13"
+          },
+          "imageId": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$",
+            "description": "An image built with [Build Image](/api-reference/images/build-image), for private images or to prepare a public image ahead of time. The exec runs the image's latest successful build. Mutually exclusive with `baseImage`."
+          },
+          "vcpuCount": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 32,
+            "description": "vCPUs for the command's microVM. Defaults to 2. An exec larger than the default size (2 vCPU, 4096 MiB) bills as that many multiples of a call, by whichever of vCPU and memory is the larger multiple, rounded up. The Free plan allows only the default size.",
+            "example": 4
+          },
+          "memSizeMib": {
+            "type": "integer",
+            "minimum": 256,
+            "maximum": 65536,
+            "description": "Memory in MiB for the command's microVM. Defaults to 4096. Billed as described for `vcpuCount`.",
+            "example": 8192
+          },
+          "network": {
+            "$ref": "#/components/schemas/ExecNetwork"
+          }
+        }
+      },
+      "ExecNetwork": {
+        "type": "object",
+        "description": "Network policy for the command's microVM, using the\n[sandbox firewall](/compute/sandboxes/firewall) egress rules. Egress is\nunrestricted when omitted. The Free plan cannot set one; a request\nwith one is rejected with 403 `network_plan_required`.\n",
+        "properties": {
+          "egress": {
+            "$ref": "#/components/schemas/SandboxEgressPolicy"
           }
         }
       },
@@ -4569,7 +4874,7 @@
           },
           "pattern": {
             "type": "string",
-            "description": "Extended regular expression (passed to `grep -E`)",
+            "description": "Regular expression in [ripgrep syntax](https://docs.rs/regex/latest/regex/#syntax).\nA newline separates alternative patterns, except with `multiline`,\nwhere it matches a line break.\n",
             "example": "ERROR|FATAL"
           },
           "recursive": {
@@ -4597,6 +4902,68 @@
             "maximum": 10000,
             "default": 1000,
             "description": "Stop scanning once the aggregator has this many matches.\nReturned matches are a sample of whichever workers reported\nfirst, not the lexicographically first N.\n"
+          },
+          "ignoreCase": {
+            "type": "boolean",
+            "description": "Match the pattern case-insensitively (`rg -i`). Defaults to false."
+          },
+          "multiline": {
+            "type": "boolean",
+            "description": "Let a match span lines (`rg -U`): `\\n` or a newline character in\nthe pattern matches a line break, and `.` matches one only after\n`(?s)`. Files with Windows line endings need `\\r?\\n` instead of\n`\\n`. Matches on adjacent lines come back as one match covering\nall of them, with `endLine` set, and count once toward\n`maxResults`. A file with at least `maxResults` matching lines\nstops the request with `max_results`, even when merging leaves\nfewer matches. Defaults to false.\n"
+          },
+          "globs": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 1024
+            },
+            "description": "Path globs with ripgrep's `-g` rules, matched against paths\nrelative to `directory`. A leading `!` excludes. A glob without a\n`/` matches a file or directory name at any depth; a glob with a\n`/` matches the whole relative path, and a leading `/` anchors it\nto `directory`. A trailing `/` matches only directories, so use\n`dir/**` to search the files under `dir`. When several globs\nmatch a path, the last one wins. A directory excluded this way is\nskipped with everything under it. If any non-`!` glob is given,\nfiles that match no glob are skipped. A file a glob matches is\nsearched or skipped regardless of `types` and `typesNot`.\n",
+            "example": [
+              "*.log",
+              "!archive/**"
+            ]
+          },
+          "types": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "description": "Only search files of these types, using ripgrep's default type\nnames (for example `py`, `ts`, `go`, `md`).\n",
+            "example": [
+              "py"
+            ]
+          },
+          "typesNot": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 32
+            },
+            "description": "Skip files of these types, using ripgrep's default type names.\nTakes precedence over `types`.\n",
+            "example": [
+              "json"
+            ]
+          },
+          "contextBefore": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10,
+            "default": 0,
+            "description": "Lines of context to return before each match (`rg -B`). When\neither context field is set, the result includes `groups`.\n"
+          },
+          "contextAfter": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 10,
+            "default": 0,
+            "description": "Lines of context to return after each match (`rg -A`). When\neither context field is set, the result includes `groups`.\n"
           }
         }
       },
@@ -4615,12 +4982,58 @@
           },
           "line": {
             "type": "integer",
-            "description": "1-based line number where the match occurred.",
+            "description": "1-based line number where the match occurred. With `multiline`,\nthe match's first line.\n",
             "example": 142
+          },
+          "endLine": {
+            "type": "integer",
+            "description": "With `multiline`, the 1-based number of the match's last line."
           },
           "text": {
             "type": "string",
-            "description": "The matching line."
+            "description": "The matching line, truncated at 512 KiB, or shorter with context.\nWith `multiline`, every line the match covers, joined by `\\n`,\neach truncated separately.\n"
+          }
+        }
+      },
+      "GrepGroup": {
+        "type": "object",
+        "required": [
+          "file",
+          "lines"
+        ],
+        "description": "A run of consecutive lines from one file, as grep prints it with\ncontext: each match with its surrounding lines, with nearby matches\nmerged into one group so every line appears once.\n",
+        "properties": {
+          "file": {
+            "type": "string",
+            "description": "Path to the file (relative to the disk root)."
+          },
+          "lines": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GrepGroupLine"
+            }
+          }
+        }
+      },
+      "GrepGroupLine": {
+        "type": "object",
+        "required": [
+          "line",
+          "text",
+          "match"
+        ],
+        "properties": {
+          "line": {
+            "type": "integer",
+            "description": "1-based line number."
+          },
+          "text": {
+            "type": "string",
+            "description": "The line, truncated like `GrepMatch.text`."
+          },
+          "match": {
+            "type": "boolean",
+            "description": "True for a matching line, false for a context line."
           }
         }
       },
@@ -4633,7 +5046,7 @@
           "deadline",
           "list_failed"
         ],
-        "description": "Why the search stopped.\n- `completed`: every file under the directory was scanned successfully.\n- `incomplete`: pipeline ran to its natural end but one or more\n  batches errored (invalid regex, unreadable file, runtime issue).\n  Results may be partial or wrong; do not rely on completeness.\n- `max_results`: hit `maxResults` before scanning everything.\n- `deadline`: hit `maxDurationSeconds`.\n- `list_failed`: directory listing failed; partial results\n  may be present.\n"
+        "description": "Why the search stopped.\n- `completed`: every file under the directory was scanned successfully.\n- `incomplete`: pipeline ran to its natural end but one or more\n  batches errored (invalid regex, unreadable file, runtime issue) or\n  exceeded the 4 MiB output limit.\n  Results may be partial or wrong; do not rely on completeness.\n- `max_results`: hit `maxResults`, or the response size limit\n  (32 MiB of match and context text), before scanning everything.\n- `deadline`: hit `maxDurationSeconds`.\n- `list_failed`: directory listing failed; partial results\n  may be present.\n"
       },
       "GrepDiskResult": {
         "type": "object",
@@ -4652,6 +5065,13 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/GrepMatch"
+            }
+          },
+          "groups": {
+            "type": "array",
+            "description": "Matches with their context lines, grouped the way grep prints\nthem. Present only when `contextBefore` or `contextAfter` is set.\nHolds the same matches as `matches`. When the search stops at\n`maxResults`, the last group ends up to `contextAfter` lines after\nits last kept match, and any matches in those lines are shown as\ncontext. Each line of a group counts toward the 32 MiB response\nlimit, so large context and `maxResults` multiply it.\n",
+            "items": {
+              "$ref": "#/components/schemas/GrepGroup"
             }
           },
           "stoppedReason": {
