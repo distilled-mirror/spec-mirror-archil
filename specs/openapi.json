@@ -1190,6 +1190,69 @@
         }
       }
     },
+    "/api/sandboxes/{sid}/usage": {
+      "get": {
+        "operationId": "getSandboxUsage",
+        "summary": "Get a sandbox's usage and cost",
+        "description": "Returns the vCPU-hours and GiB-hours a sandbox has been billed for since it was created, and their cost at the account's rates before included allowances and prepaid credit. The figures update about once a minute while the sandbox runs; paused and stopped time is free. Usage stays readable for 90 days after the sandbox is deleted.\n",
+        "tags": [
+          "Sandboxes"
+        ],
+        "security": [
+          {
+            "ApiKeyAuth": [
+              "sandbox:manage:get:{sid}"
+            ]
+          },
+          {
+            "SessionTokenAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "#/components/parameters/SandboxId"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The sandbox's usage and cost",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponse_SandboxUsage"
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "description": "Sandbox not found (`not_found`), or usage billing is unavailable in this deployment (`billing_unavailable`)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "503": {
+            "description": "Pricing is temporarily unavailable (`pricing_unavailable`); safe to retry.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/sandboxes/{sid}/connections": {
       "post": {
         "operationId": "createSandboxConnection",
@@ -3355,6 +3418,83 @@
           },
           "data": {
             "$ref": "#/components/schemas/SandboxNetwork"
+          }
+        }
+      },
+      "SandboxUsage": {
+        "type": "object",
+        "required": [
+          "sandbox_id",
+          "as_of",
+          "vcpu_hours",
+          "memory_gib_hours",
+          "rates",
+          "cost"
+        ],
+        "properties": {
+          "sandbox_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "as_of": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the usage was read."
+          },
+          "vcpu_hours": {
+            "type": "number",
+            "format": "double",
+            "description": "Allocated vCPUs times hours running.",
+            "example": 3
+          },
+          "memory_gib_hours": {
+            "type": "number",
+            "format": "double",
+            "description": "Allocated memory in GiB times hours running.",
+            "example": 6
+          },
+          "rates": {
+            "type": "object",
+            "required": [
+              "vcpu_hour",
+              "memory_gib_hour"
+            ],
+            "properties": {
+              "vcpu_hour": {
+                "type": "number",
+                "format": "double",
+                "description": "Dollars per vCPU-hour at the account's rates; zero on a plan that does not price sandbox usage.",
+                "example": 0.055
+              },
+              "memory_gib_hour": {
+                "type": "number",
+                "format": "double",
+                "description": "Dollars per GiB-hour at the account's rates; zero on a plan that does not price sandbox usage.",
+                "example": 0.02
+              }
+            }
+          },
+          "cost": {
+            "type": "number",
+            "format": "double",
+            "description": "Dollars, before included allowances and prepaid credit.",
+            "example": 0.285
+          }
+        }
+      },
+      "ApiResponse_SandboxUsage": {
+        "type": "object",
+        "required": [
+          "success",
+          "data"
+        ],
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "example": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/SandboxUsage"
           }
         }
       },
