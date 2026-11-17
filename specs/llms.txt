@@ -114,6 +114,7 @@
 - [MySQL](https://docs.archil.com/guides/apps/mysql.md): Run MySQL in a sandbox with its data directory on an Archil disk, and connect to it from your machine with the mysql client.
 - [Daytona](https://docs.archil.com/guides/platforms/daytona.md): Already on Daytona? Mount an Archil disk in your Daytona sandboxes so agent workspaces outlive the sandbox and stay portable.
 - [E2B](https://docs.archil.com/guides/platforms/e2b.md): Already on E2B? Mount an Archil disk in your E2B sandboxes so agent workspaces outlive the sandbox and stay portable.
+- [Blaxel](https://docs.archil.com/guides/platforms/blaxel.md): Mount one Archil disk in many Blaxel sandboxes so they share files with each other and with the rest of your stack.
 - [exe.dev](https://docs.archil.com/guides/platforms/exe-dev.md): Mount one Archil disk in many exe.dev VMs so they share files with each other and with the rest of your stack.
 - [Fly.io Sprites](https://docs.archil.com/guides/platforms/sprites.md): Mount one Archil disk in many Sprites so they share files with each other and with the rest of your stack.
 - [Modal](https://docs.archil.com/guides/platforms/modal.md): Mount an Archil disk in Modal Sandboxes so their files outlive the container.
