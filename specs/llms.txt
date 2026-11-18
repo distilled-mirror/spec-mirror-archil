@@ -102,6 +102,7 @@
 - [OpenCode](https://docs.archil.com/guides/agents/opencode.md): Run OpenCode headlessly in an Archil sandbox, with its workspace and session history on an Archil disk.
 - [OpenAI Codex](https://docs.archil.com/guides/agents/codex.md): Run the OpenAI Codex CLI headlessly in an Archil sandbox, with its workspace and session history on an Archil disk.
 - [Parallel agents](https://docs.archil.com/guides/agents/parallel-agents.md): Fork a prepared sandbox once per agent, let each agent try a different approach, and keep the fork with the best score.
+- [Temporal](https://docs.archil.com/guides/agents/temporal.md): Run each Temporal activity on a worker inside its own sandbox, started and deleted by the workflow.
 - [Agentic observability](https://docs.archil.com/guides/agents/agentic-observability.md): Write application logs straight to an Archil disk, then have an AI agent triage errors on a schedule and build dashboards on request.
 - [Vector search with LanceDB](https://docs.archil.com/guides/agents/vector-search.md): Store a LanceDB table on an Archil disk, serve vector, filtered, and hybrid search from read-only replicas, and update it in place.
 - [Analytics with DuckDB](https://docs.archil.com/guides/analytics/duckdb.md): Query 81 million places from the Overture Maps public bucket with DuckDB, without copying the data, and serve results over HTTPS.
